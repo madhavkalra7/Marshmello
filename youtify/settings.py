@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 
 import os
 import dj_database_url
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -28,13 +29,30 @@ SECRET_KEY = os.getenv('SECRET_KEY', '2rue53h9#2220t(1c$tx)&-2=*i0n138ug5)5lq$17
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = [host.strip() for host in os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(',') if host.strip()]
+def _normalize_host(value):
+    value = (value or '').strip()
+    if not value:
+        return ''
+    if '://' in value:
+        parsed = urlparse(value)
+        value = parsed.netloc or parsed.path
+    value = value.split('/')[0]
+    if ':' in value:
+        value = value.split(':')[0]
+    return value.strip()
 
-vercel_host = os.getenv('VERCEL_URL')
+
+ALLOWED_HOSTS = []
+for host in os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost').split(','):
+    normalized_host = _normalize_host(host)
+    if normalized_host and normalized_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(normalized_host)
+
+vercel_host = _normalize_host(os.getenv('VERCEL_URL'))
 if vercel_host:
     ALLOWED_HOSTS.append(vercel_host)
 
-render_host = os.getenv('RENDER_EXTERNAL_HOSTNAME')
+render_host = _normalize_host(os.getenv('RENDER_EXTERNAL_HOSTNAME'))
 if render_host:
     ALLOWED_HOSTS.append(render_host)
 
@@ -93,7 +111,7 @@ DATABASES = {
     }
 }
 
-database_url = os.getenv('DATABASE_URL')
+database_url = os.getenv('DATABASE_URL', '').strip().strip('"').strip("'")
 if database_url:
     DATABASES['default'] = dj_database_url.parse(database_url, conn_max_age=600)
     db_options = DATABASES['default'].setdefault('OPTIONS', {})
