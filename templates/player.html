@@ -48,7 +48,7 @@
                 <span class='label'>Search</span>
             </div>
 
-            <a class="options library" href="{% url 'your_playlists' %}">
+            <a id="libraryLink" class="options library" href="{% url 'your_playlists' %}">
                 <svg viewBox="0 0 512 512" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
                     <path class='ops'
                         d="M291.301 81.778l166.349 373.587-19.301 8.635-166.349-373.587zM64 463.746v-384h21.334v384h-21.334zM192 463.746v-384h21.334v384h-21.334z"
@@ -260,7 +260,7 @@
         <div class="play-options">
             <img id='vol-icon' class='mainicons' src="{% static 'vol-3.svg' %}" alt="Volume icon">
             <div id='volume' class="range-slider">
-                <input id='volumeBar' oninput="setVolume()" class="range-slider__range" type="range" value="100" min="0"
+                <input id='volumeBar' oninput="setVolume()" class="range-slider__range" type="range" value="500" min="0"
                     max="500">
             </div>
         </div>
