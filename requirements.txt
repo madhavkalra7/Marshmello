@@ -1,0 +1,8 @@
+Django==3.0.7
+youtube-search==1.1.1
+spotipy==2.16.1
+gunicorn==22.0.0
+whitenoise==6.7.0
+dj-database-url==2.2.0
+psycopg2-binary==2.9.9
+python-dotenv==1.0.1
