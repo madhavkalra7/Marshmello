@@ -72,7 +72,7 @@
         <div class="ytbPlayerCont" id="ytbPlayerCont" onclick="iframeToggle()">
           {% block iframe %}
             <iframe class="ytbPlayer" id="video"
-                src="https://www.youtube-nocookie.com/embed/{{song}}?enablejsapi=1&rel=0&iv_load_policy=3&fs=0&controls=0&disablekb=1" allow='autoplay; fullscreen;'
+                                src="https://www.youtube.com/embed/{{song}}?enablejsapi=1&rel=0&iv_load_policy=3&fs=0&controls=0&disablekb=1&origin={{ request.scheme }}://{{ request.get_host }}" allow='autoplay; fullscreen;'
                  frameborder="0"></iframe>
           {% endblock %}
         </div>
@@ -273,6 +273,9 @@
 const playPauseIcon = document.getElementById("playPauseIcon");
 
 playPauseButton.addEventListener("click", () => {
+    if (!player || typeof player.getPlayerState !== 'function') {
+        return;
+    }
     if (player.getPlayerState() === YT.PlayerState.PLAYING) {
         player.pauseVideo();
         playPauseIcon.src = "/static/play.png";
@@ -332,6 +335,8 @@ playPauseButton.addEventListener("click", () => {
     var blockedSongIds = new Set();
     var currentSongId = null;
     var currentQueueIndex = -1;
+    var pendingSongId = null;
+    var isPlayerReady = false;
     var mytimer = null;
     var pauseButton = document.getElementById("pauseicon");
     var playButton = document.getElementById("playicon");
@@ -348,6 +353,14 @@ playPauseButton.addEventListener("click", () => {
     function onYouTubePlayerAPIReady() {
         // create the global player from the specific iframe (#video)
         player = new YT.Player('video', {
+            playerVars: {
+                autoplay: 1,
+                controls: 0,
+                disablekb: 1,
+                iv_load_policy: 3,
+                rel: 0,
+                origin: window.location.origin
+            },
             events: {
                 // call this function when player is ready to use
                 'onReady': onPlayerReady,
@@ -356,6 +369,10 @@ playPauseButton.addEventListener("click", () => {
             }
         });
         buildSongQueue();
+    }
+
+    function onYouTubeIframeAPIReady() {
+        onYouTubePlayerAPIReady();
     }
 
     function str_pad_left(string, pad, length) {
@@ -418,7 +435,9 @@ playPauseButton.addEventListener("click", () => {
             return;
         }
 
-        iframe.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&controls=0&disablekb=1&enablejsapi=1&iv_load_policy=3&vq=medium`;
+        pendingSongId = id;
+        showPlaybackNotice('Loading player...', false);
+        iframe.src = `https://www.youtube.com/embed/${id}?autoplay=1&controls=0&disablekb=1&enablejsapi=1&iv_load_policy=3&origin=${encodeURIComponent(window.location.origin)}&vq=medium`;
     };
 
     function playNextPlayableSong() {
@@ -453,6 +472,9 @@ playPauseButton.addEventListener("click", () => {
 
 
     function play() {
+        if (!player || typeof player.playVideo !== 'function') {
+            return;
+        }
         if (pauseButton.classList.contains("hidden")) {
             playButton.classList.toggle("hidden");
             pauseButton.classList.toggle("hidden");
@@ -461,6 +483,9 @@ playPauseButton.addEventListener("click", () => {
     };
 
     function pause() {
+        if (!player || typeof player.pauseVideo !== 'function') {
+            return;
+        }
         if (playButton.classList.contains("hidden")) {
             pauseButton.classList.toggle("hidden");
             playButton.classList.toggle("hidden");
@@ -490,14 +515,26 @@ playPauseButton.addEventListener("click", () => {
 
 
     function onPlayerReady(event) {
+        isPlayerReady = true;
         playButton.addEventListener("click", play);
         pauseButton.addEventListener("click", pause);
         setVolume();
         buildSongQueue();
+        if (pendingSongId) {
+            player.loadVideoById(pendingSongId);
+            pendingSongId = null;
+        }
         onPlayerStateChange(event);
     }
 
     function onPlayerError(event) {
+        if (currentSongId && event.data === 2) {
+            blockedSongIds.add(currentSongId);
+            showPlaybackNotice('Invalid/unsupported track. Trying next...', true);
+            playNextPlayableSong();
+            return;
+        }
+
         if (currentSongId && [101, 150, 153].includes(event.data)) {
             blockedSongIds.add(currentSongId);
             showPlaybackNotice('This song cannot be played here (YouTube embed restriction). Trying next...', true);
@@ -581,7 +618,7 @@ progressBar.addEventListener('input', function () {
 
     // Inject YouTube API script
     var tag = document.createElement('script');
-    tag.src = "https://www.youtube.com/player_api";
+    tag.src = "https://www.youtube.com/iframe_api";
     var firstScriptTag = document.getElementsByTagName('script')[0];
     firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
