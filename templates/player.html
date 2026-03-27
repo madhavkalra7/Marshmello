@@ -131,6 +131,14 @@
     <div class="main" data-simplebar>
         {% block main %}
         <div class="homecontainer">
+            <div class="home-hero">
+                <div class="home-hero-content">
+                    <p class="hero-kicker">Welcome Back</p>
+                    <h1 class="hero-title">Your Marshmello Mix</h1>
+                    <p class="hero-subtitle">Curated picks from your favorite channels. Tap play and skip what cannot be embedded.</p>
+                </div>
+                <a class="hero-cta" href="/search">Find New Songs</a>
+            </div>
             {% for playlist in CONTAINER %}
             <div class="category">
                 <div class="catTitle">
@@ -142,7 +150,7 @@
                     <div class="card c1">
                         <div class="albumcover">
                             <a href="https://youtu.be/{{ card.3 }}?si=euoApd_J6XWCMRVl" target="_blank"><img class="albumimg" src="{{ card.0 }}" alt="" srcset=""></a>
-                            <div class="albumplay" onclick='playSong("{{ card.3 }}")'><img
+                            <div class="albumplay" data-song-id="{{ card.3 }}" onclick='playSong("{{ card.3 }}","none",true)'><img
                                     src="https://cdn.discordapp.com/attachments/768083738848133130/769476261181128734/image_1.png"
                                     alt="">
                             </div>
@@ -245,6 +253,9 @@
     </div>
 </div>
 
+        <div id="playbackNotice" class="playback-notice hidden"></div>
+        <a id="ytFallbackLink" class="yt-fallback-link hidden" href="#" target="_blank" rel="noopener noreferrer">Watch on YouTube</a>
+
 
         <div class="play-options">
             <img id='vol-icon' class='mainicons' src="" alt="">
@@ -317,11 +328,18 @@ playPauseButton.addEventListener("click", () => {
 
 
     var player;
+    var songQueue = [];
+    var blockedSongIds = new Set();
+    var currentSongId = null;
+    var currentQueueIndex = -1;
+    var mytimer = null;
     var pauseButton = document.getElementById("pauseicon");
     var playButton = document.getElementById("playicon");
     pauseButton.classList.toggle("hidden");
     document.getElementById("progressBar").value = 0;
     var progressBar = document.getElementById("progressBar");
+    var playbackNotice = document.getElementById('playbackNotice');
+    var ytFallbackLink = document.getElementById('ytFallbackLink');
 
 
     var dur;
@@ -333,9 +351,11 @@ playPauseButton.addEventListener("click", () => {
             events: {
                 // call this function when player is ready to use
                 'onReady': onPlayerReady,
-                'onStateChange': onPlayerStateChange
+                'onStateChange': onPlayerStateChange,
+                'onError': onPlayerError
             }
         });
+        buildSongQueue();
     }
 
     function str_pad_left(string, pad, length) {
@@ -345,19 +365,88 @@ playPauseButton.addEventListener("click", () => {
 
     var iframe = document.getElementById("video");
 
+    function buildSongQueue() {
+        var ids = [];
+        document.querySelectorAll('[data-song-id]').forEach(function (el) {
+            var id = (el.dataset.songId || '').trim();
+            if (id && !ids.includes(id)) {
+                ids.push(id);
+            }
+        });
+        songQueue = ids;
+    }
+
+    function setCurrentSong(id) {
+        currentSongId = id;
+        ytFallbackLink.href = `https://youtu.be/${id}`;
+    }
+
+    function showPlaybackNotice(message, showLink=false) {
+        playbackNotice.textContent = message;
+        playbackNotice.classList.remove('hidden');
+        if (showLink) {
+            ytFallbackLink.classList.remove('hidden');
+        } else {
+            ytFallbackLink.classList.add('hidden');
+        }
+    }
+
+    function hidePlaybackNotice() {
+        playbackNotice.classList.add('hidden');
+        ytFallbackLink.classList.add('hidden');
+    }
+
 
 
     function playSong(id, playlistId, liked=false) {
-        if (liked){
-            iframe.src = `https://www.youtube-nocookie.com/embed/${id}?controls=0&disablekb=1&enablejsapi=1&iv_load_policy=3&vq=medium`;
-            play();
-        } else{
-        iframe.src = `https://www.youtube-nocookie.com/embed/?listType=playlist&list=${playlistId}&index=${id}&autoplay=1&controls=0&disablekb=1&enablejsapi=1&iv_load_policy=3&vq=medium`;
-        play();
+        if (!id) {
+            return;
         }
+
+        buildSongQueue();
+        setCurrentSong(id);
+        hidePlaybackNotice();
+
+        var queueIndex = songQueue.indexOf(id);
+        if (queueIndex !== -1) {
+            currentQueueIndex = queueIndex;
+        }
+
+        if (player && typeof player.loadVideoById === 'function') {
+            player.loadVideoById(id);
+            play();
+            return;
+        }
+
+        iframe.src = `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&controls=0&disablekb=1&enablejsapi=1&iv_load_policy=3&vq=medium`;
     };
 
+    function playNextPlayableSong() {
+        buildSongQueue();
+        if (!songQueue.length) {
+            showPlaybackNotice('No playable songs were found.', true);
+            return;
+        }
+
+        var attempts = 0;
+        while (attempts < songQueue.length) {
+            currentQueueIndex = (currentQueueIndex + 1) % songQueue.length;
+            var nextId = songQueue[currentQueueIndex];
+            if (nextId && !blockedSongIds.has(nextId)) {
+                playSong(nextId, 'none', true);
+                return;
+            }
+            attempts += 1;
+        }
+
+        showPlaybackNotice('Most tracks in this list cannot be embedded. Use Watch on YouTube.', true);
+    }
+
     function nextSong(){
+        if (songQueue.length) {
+            playNextPlayableSong();
+            return;
+        }
         player.nextVideo();
         play();
     }
@@ -404,7 +493,25 @@ playPauseButton.addEventListener("click", () => {
         playButton.addEventListener("click", play);
         pauseButton.addEventListener("click", pause);
         setVolume();
+        buildSongQueue();
         onPlayerStateChange(event);
+    }
+
+    function onPlayerError(event) {
+        if (currentSongId && [101, 150, 153].includes(event.data)) {
+            blockedSongIds.add(currentSongId);
+            showPlaybackNotice('This song cannot be played here (YouTube embed restriction). Trying next...', true);
+            playNextPlayableSong();
+            return;
+        }
+
+        if (event.data === 100) {
+            showPlaybackNotice('Song not found or removed from YouTube.', true);
+            playNextPlayableSong();
+            return;
+        }
+
+        showPlaybackNotice('Playback error occurred. Try another song.', true);
     }
 
 
@@ -443,7 +550,7 @@ progressBar.addEventListener('input', function () {
 })
 
     function onPlayerStateChange(event) {
-        console.log('this');
+        clearInterval(mytimer);
         mytimer = setInterval(function () {
             infoUpdate();
 
@@ -465,25 +572,7 @@ progressBar.addEventListener('input', function () {
             }
         });
         if (event.data == YT.PlayerState.PLAYING) {
-            progressBar.addEventListener('input', function () {
-                var seek = progressBar.value;
-                finalSeek = (seek * dur) / 100;
-                player.seekTo(finalSeek);
-            });
-
-
-
-            mytimer = setInterval(function () {
-                infoUpdate();
-                dur = player.getDuration();
-                var playerCurrentTime = player.getCurrentTime();
-                var playerTimeDifference = (playerCurrentTime / dur) * 100;
-                progressBar.value = playerTimeDifference;
-                let minutes = Math.floor(playerCurrentTime / 60);
-                let seconds = playerCurrentTime - (minutes * 60);
-                let currentDur = str_pad_left(minutes, '0', 2) + ':' + str_pad_left(seconds, '0', 2);
-                document.getElementById("currentDur").innerHTML = currentDur;
-            }, 1000);
+            hidePlaybackNotice();
         }
     }
 
