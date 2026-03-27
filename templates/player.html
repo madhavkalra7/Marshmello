@@ -10,9 +10,6 @@
         content="Play your playlists and favourites tracks, albums, and artists of YouTube with a Spotify styled UI" />
     <meta name="keywords"
         content="convert, convert playlists, transfer, syncing, smart links, free, apple music, streaming services, spotify, youtube" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 	<link rel="stylesheet" href="{% static 'player.css' %}?{% now " U " %}"> {% block css %} {% endblock %}
 	<title>Marshmello</title>
     <link rel="icon" type="image/x-icon" href="/static/marshmello_favicon.png">
@@ -104,7 +101,7 @@
                         d="M349.714 347.937l93.714 109.969-16.254 13.969-93.969-109.969q-48.508 36.825-109.207 36.825-36.826 0-70.476-14.349t-57.905-38.603-38.603-57.905-14.349-70.476 14.349-70.476 38.603-57.905 57.905-38.603 70.476-14.349 70.476 14.349 57.905 38.603 38.603 57.905 14.349 70.476q0 37.841-14.73 71.619t-40.889 58.921zM224 377.397q43.428 0 80.254-21.461t58.286-58.286 21.461-80.254-21.461-80.254-58.286-58.285-80.254-21.46-80.254 21.46-58.285 58.285-21.46 80.254 21.46 80.254 58.285 58.286 80.254 21.461z"
                         fill="black" fill-rule="evenodd"></path>
               </svg>
-            <input class="searchBar" placeholder="Search songs, artists, moods" type="text" name="search" id="searchBar" required>
+            <input class="searchBar" placeholder="Search for song" type="text" name="search" id="searchBar" required>
             </div>
 
             </form>
@@ -137,7 +134,7 @@
             <div class="home-hero">
                 <div class="home-hero-content">
                     <p class="hero-kicker">Welcome Back</p>
-                    <h1 class="hero-title">Your Marshmello Mix</h1>
+                    <h1 class="hero-title">Your Marshmello Mix - BY Madhav Kalra</h1>
                     <p class="hero-subtitle">Curated picks from your favorite channels. Tap play and skip what cannot be embedded.</p>
                 </div>
                 <a class="hero-cta" href="/search">Find New Songs</a>
@@ -153,8 +150,8 @@
                     <div class="card c1">
                         <div class="albumcover">
                             <a href="https://youtu.be/{{ card.3 }}?si=euoApd_J6XWCMRVl" target="_blank"><img class="albumimg" src="{{ card.0 }}" alt="" srcset=""></a>
-                            <div class="albumplay" data-song-id="{{ card.3 }}" onclick='playSong("{{ card.3 }}","none",true)'><img
-                                    src="https://cdn.discordapp.com/attachments/768083738848133130/769476261181128734/image_1.png"
+                                <div class="albumplay" data-song-id="{{ card.3 }}" onclick='playSong("{{ card.3 }}","none",true)'><img
+                                    src="{% static 'play.png' %}"
                                     alt="">
                             </div>
                         </div>
@@ -225,7 +222,7 @@
     <div class="playOptions">
         <div onclick="goToStart()" class="mainicons">
             <img class="mainicons"
-                src="https://cdn.discordapp.com/attachments/768083738848133130/773142728145371146/skip-back.svg"
+                    src="{% static 'skip-back.svg' %}"
                 alt=""></img></div>
 
         <div id='playicon' class="mainicons playicon">
@@ -237,13 +234,13 @@
         <!-- Add the new play/pause button here -->
         <button id="playPauseButton" class="mainicons playicon" aria-label="Play or pause">
             <img id="playPauseIcon" class="mainicons playicon"
-                src="/static/play.png"
+                src="{% static 'play.png' %}"
                 alt=""></img>
         </button>
 
         <div class="mainicons" onclick="nextSong()">
             <img class="mainicons"
-                src="https://cdn.discordapp.com/attachments/768083738848133130/773142729714696212/skip-forward.svg"
+                src="{% static 'skip-forward.svg' %}"
                 alt=""></img></div>
     </div>
 
@@ -261,7 +258,7 @@
 
 
         <div class="play-options">
-            <img id='vol-icon' class='mainicons' src="" alt="">
+            <img id='vol-icon' class='mainicons' src="{% static 'vol-3.svg' %}" alt="Volume icon">
             <div id='volume' class="range-slider">
                 <input id='volumeBar' oninput="setVolume()" class="range-slider__range" type="range" value="100" min="0"
                     max="500">
@@ -272,6 +269,13 @@
 </div>
 
 <script>
+const ICON_PLAY = "{% static 'play.png' %}";
+const ICON_PAUSE = "{% static 'pause.png' %}";
+const ICON_VOL_0 = "{% static 'vol-0.svg' %}";
+const ICON_VOL_1 = "{% static 'vol-1.svg' %}";
+const ICON_VOL_2 = "{% static 'vol-2.svg' %}";
+const ICON_VOL_3 = "{% static 'vol-3.svg' %}";
+
     const playPauseButton = document.getElementById("playPauseButton");
 const playPauseIcon = document.getElementById("playPauseIcon");
 
@@ -281,10 +285,10 @@ playPauseButton.addEventListener("click", () => {
     }
     if (player.getPlayerState() === YT.PlayerState.PLAYING) {
         player.pauseVideo();
-        playPauseIcon.src = "/static/play.png";
+        playPauseIcon.src = ICON_PLAY;
     } else {
         player.playVideo();
-        playPauseIcon.src = "/static/pause.png";
+        playPauseIcon.src = ICON_PAUSE;
     }
 });
     // Drag cards......
@@ -568,16 +572,16 @@ playPauseButton.addEventListener("click", () => {
         player.setVolume(v);
         vol_ico = document.getElementById('vol-icon');
         if (v == 0) {
-            vol_ico.src = 'https://cdn.discordapp.com/attachments/768083738848133130/773923517091676190/v0.png';
+            vol_ico.src = ICON_VOL_0;
         }
         else if (v < 33) {
-            vol_ico.src = 'https://cdn.discordapp.com/attachments/768083738848133130/773921824635093013/v1.png';
+            vol_ico.src = ICON_VOL_1;
         }
         else if (v < 66) {
-            vol_ico.src = 'https://cdn.discordapp.com/attachments/768083738848133130/773921822492065843/v2.png';
+            vol_ico.src = ICON_VOL_2;
         }
         else {
-            vol_ico.src = 'https://cdn.discordapp.com/attachments/768083738848133130/773921819879014421/v3.png';
+            vol_ico.src = ICON_VOL_3;
         }
 
     }

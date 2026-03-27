@@ -15,6 +15,62 @@ from django.conf import settings
 with open(os.path.join(settings.BASE_DIR, 'card.json'), 'r') as f:
     CONTAINER = json.load(f)
 
+
+def _bucket_name(song, source_name):
+    title = str(song[1]).lower() if len(song) > 1 else ""
+    artist = str(song[2]).lower() if len(song) > 2 else ""
+    text = f"{title} {artist}"
+    source = (source_name or "").strip().lower()
+
+    haryanvi_keywords = [
+        "dhanda nyoliwala", "masoom sharma", "haryanvi", "haryanavi"
+    ]
+    punjabi_keywords = [
+        "punjabi", "sidhu moose wala", "karan aujla", "diljit", "ap dhillon"
+    ]
+    bhakti_keywords = [
+        "bhakti", "bhajan", "aart", "aarti", "hanuman", "shiv", "krishna", "ram"
+    ]
+
+    if any(keyword in text for keyword in bhakti_keywords):
+        return "Bhakti"
+    if any(keyword in text for keyword in haryanvi_keywords):
+        return "Haryanvi"
+    if any(keyword in text for keyword in punjabi_keywords):
+        return "Punjabi"
+    if source == "spanish":
+        return "Spanish"
+    return "English"
+
+
+def _build_home_container(container):
+    buckets = {
+        "Haryanvi": [],
+        "Punjabi": [],
+        "English": [],
+        "Bhakti": [],
+        "Spanish": [],
+    }
+
+    for playlist in container:
+        source_name = playlist[0] if len(playlist) > 0 else ""
+        songs = playlist[1] if len(playlist) > 1 else []
+        for song in songs:
+            bucket = _bucket_name(song, source_name)
+            buckets[bucket].append(song)
+
+    ordered = [
+        ["Haryanvi", buckets["Haryanvi"], ""],
+        ["Punjabi", buckets["Punjabi"], ""],
+        ["English", buckets["English"], ""],
+        ["Bhakti", buckets["Bhakti"], ""],
+    ]
+
+    if buckets["Spanish"]:
+        ordered.append(["Spanish", buckets["Spanish"], ""])
+
+    return ordered
+
 def default(request):
     global CONTAINER
     if request.user.is_anonymous:
@@ -26,7 +82,8 @@ def default(request):
         return HttpResponse("")
 
     song = 'kSFJGEHDCrQ'
-    return render(request, 'player.html',{'CONTAINER':CONTAINER, 'song':song})
+    home_container = _build_home_container(CONTAINER)
+    return render(request, 'player.html',{'CONTAINER':home_container, 'song':song})
 
 def signup(request):
     context= {'username':True,'email':True}
