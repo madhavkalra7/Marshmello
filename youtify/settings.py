@@ -96,6 +96,12 @@ DATABASES = {
 database_url = os.getenv('DATABASE_URL')
 if database_url:
     DATABASES['default'] = dj_database_url.parse(database_url, conn_max_age=600)
+    db_options = DATABASES['default'].setdefault('OPTIONS', {})
+    existing_options = db_options.get('options', '').strip()
+    timezone_option = '-c timezone=UTC'
+    if timezone_option not in existing_options:
+        db_options['options'] = f"{existing_options} {timezone_option}".strip()
+    DATABASES['default']['DISABLE_SERVER_SIDE_CURSORS'] = True
 
 # Password validation
 # https://docs.djangoproject.com/en/3.0/ref/settings/#auth-password-validators
