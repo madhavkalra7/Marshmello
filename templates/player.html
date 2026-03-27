@@ -69,7 +69,7 @@
         <div class="ytbPlayerCont" id="ytbPlayerCont" onclick="iframeToggle()">
           {% block iframe %}
             <iframe class="ytbPlayer" id="video"
-                                src="https://www.youtube.com/embed/{{song}}?enablejsapi=1&rel=0&iv_load_policy=3&fs=0&controls=0&disablekb=1&origin={{ request.scheme }}://{{ request.get_host }}" allow='autoplay; fullscreen;'
+                                src="https://invidious.snopyta.org/embed/{{song}}?autoplay=1&controls=0&rel=0&fs=0" allow='autoplay; fullscreen;'
                  frameborder="0"></iframe>
           {% endblock %}
         </div>
@@ -352,14 +352,10 @@ playPauseButton.addEventListener("click", () => {
     };
 
 
-    var player;
     var songQueue = [];
     var blockedSongIds = new Set();
     var currentSongId = null;
     var currentQueueIndex = -1;
-    var pendingSongId = null;
-    var isPlayerReady = false;
-    var mytimer = null;
     var pauseButton = document.getElementById("pauseicon");
     var playButton = document.getElementById("playicon");
     pauseButton.classList.toggle("hidden");
@@ -401,21 +397,7 @@ playPauseButton.addEventListener("click", () => {
         return (new Array(length + 1).join(pad) + Math.round(string)).slice(-length);
     }
 
-    function hasPlayerApi(instance) {
-        return !!instance
-            && typeof instance.getDuration === 'function'
-            && typeof instance.getCurrentTime === 'function';
-    }
 
-    function getActivePlayer(event) {
-        if (event && event.target && hasPlayerApi(event.target)) {
-            return event.target;
-        }
-        if (hasPlayerApi(player)) {
-            return player;
-        }
-        return null;
-    }
 
 
     var iframe = document.getElementById("video");
@@ -467,15 +449,7 @@ playPauseButton.addEventListener("click", () => {
             currentQueueIndex = queueIndex;
         }
 
-        if (player && typeof player.loadVideoById === 'function') {
-            player.loadVideoById(id);
-            play();
-            return;
-        }
-
-        pendingSongId = id;
-        showPlaybackNotice('Loading player...', false);
-        iframe.src = `https://www.youtube.com/embed/${id}?autoplay=1&controls=0&disablekb=1&enablejsapi=1&iv_load_policy=3&origin=${encodeURIComponent(window.location.origin)}&vq=medium`;
+        iframe.src = `https://invidious.snopyta.org/embed/${id}?autoplay=1&controls=0&rel=0&fs=0`;
     };
 
     function playNextPlayableSong() {
@@ -504,31 +478,23 @@ playPauseButton.addEventListener("click", () => {
             playNextPlayableSong();
             return;
         }
-        player.nextVideo();
-        play();
     }
 
 
     function play() {
-        if (!player || typeof player.playVideo !== 'function') {
-            return;
-        }
+        iframe.contentWindow.postMessage('play', '*');
         if (pauseButton.classList.contains("hidden")) {
             playButton.classList.toggle("hidden");
             pauseButton.classList.toggle("hidden");
         };
-        player.playVideo();
     };
 
     function pause() {
-        if (!player || typeof player.pauseVideo !== 'function') {
-            return;
-        }
+        iframe.contentWindow.postMessage('pause', '*');
         if (playButton.classList.contains("hidden")) {
             pauseButton.classList.toggle("hidden");
             playButton.classList.toggle("hidden");
         };
-        player.pauseVideo();
     };
 
 
@@ -556,67 +522,21 @@ playPauseButton.addEventListener("click", () => {
     };
 
 
-    function onPlayerReady(event) {
-        if (event && event.target) {
-            player = event.target;
-        }
-        isPlayerReady = true;
-        playButton.addEventListener("click", play);
-        pauseButton.addEventListener("click", pause);
-        setVolume();
-        buildSongQueue();
-        if (pendingSongId) {
-            if (player && typeof player.loadVideoById === 'function') {
-                player.loadVideoById(pendingSongId);
-            }
-            pendingSongId = null;
-        }
-    }
 
-    function onPlayerError(event) {
-        if (currentSongId && event.data === 2) {
-            blockedSongIds.add(currentSongId);
-            showPlaybackNotice('Invalid/unsupported track. Trying next...', true);
-            playNextPlayableSong();
-            return;
-        }
 
-        if (currentSongId && [101, 150, 153].includes(event.data)) {
-            blockedSongIds.add(currentSongId);
-            showPlaybackNotice('This song cannot be played here (YouTube embed restriction). Trying next...', true);
-            playNextPlayableSong();
-            return;
-        }
 
-        if (event.data === 100) {
-            showPlaybackNotice('Song not found or removed from YouTube.', true);
-            playNextPlayableSong();
-            return;
-        }
-
-        showPlaybackNotice('Playback error occurred. Try another song.', true);
-    }
 
 
     function goToStart() {
-        if (!player || typeof player.seekTo !== 'function') {
-            return;
-        }
-        player.seekTo(0);
+        iframe.contentWindow.postMessage({action: 'seek', value: 0}, '*');
         progressBar.value = 0;
-        if (typeof player.previousVideo === 'function') {
-            player.previousVideo();
-        }
         play();
     }
 
 
     function setVolume() {
-        if (!player || typeof player.setVolume !== 'function') {
-            return;
-        }
         let v = Math.floor(document.getElementById("volumeBar").value / 5);
-        player.setVolume(v);
+        iframe.contentWindow.postMessage({action: 'setVolume', value: v}, '*');
         vol_ico = document.getElementById('vol-icon');
         if (v == 0) {
             vol_ico.src = ICON_VOL_0;
@@ -634,51 +554,18 @@ playPauseButton.addEventListener("click", () => {
     }
 
 progressBar.addEventListener('input', function () {
-    if (!player || typeof player.seekTo !== 'function') {
-        return;
-    }
     var seek = progressBar.value;
     finalSeek = (seek * dur) / 100;
-    player.seekTo(finalSeek);
+    iframe.contentWindow.postMessage({action: 'seek', value: finalSeek}, '*');
     play()
 })
 
-    function onPlayerStateChange(event) {
-        var activePlayer = getActivePlayer(event);
-        if (!activePlayer) {
-            clearInterval(mytimer);
-            return;
-        }
-        player = activePlayer;
-        clearInterval(mytimer);
-        mytimer = setInterval(function () {
-            if (!hasPlayerApi(player)) {
-                return;
-            }
-            infoUpdate();
-            dur = player.getDuration();
-            var playerCurrentTime = player.getCurrentTime();
-            var playerTimeDifference = dur ? (playerCurrentTime / dur) * 100 : 0;
-            progressBar.value = playerTimeDifference;
-            let minutes = Math.floor(playerCurrentTime / 60);
-            let seconds = playerCurrentTime - (minutes * 60);
-            let currentDur = str_pad_left(minutes, '0', 2) + ':' + str_pad_left(seconds, '0', 2);
-            document.getElementById("currentDur").innerHTML = currentDur;
-        }, 1000);
-
-        if (event.data == YT.PlayerState.PLAYING) {
-            hidePlaybackNotice();
-        }
-    }
 
 
 
 
-    // Inject YouTube API script
-    var tag = document.createElement('script');
-    tag.src = "https://www.youtube.com/iframe_api";
-    var firstScriptTag = document.getElementsByTagName('script')[0];
-    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+
 
 
     $(document).on('click', '#like-form', function(e){
