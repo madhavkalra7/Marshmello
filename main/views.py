@@ -114,11 +114,17 @@ def login_auth(request):
     if not request.user.is_anonymous:
         return redirect('/')
     if request.method == 'POST':
-        username = request.POST.get('username')
+        identifier = (request.POST.get('username') or '').strip()
         password = request.POST.get('password')
         # print(User.objects.values_list("password",))
 
-        user = authenticate(username=username, password=password)
+        user = authenticate(username=identifier, password=password)
+
+        # Fallback: allow login via email as well.
+        if user is None and identifier:
+            email_user = User.objects.filter(email__iexact=identifier).first()
+            if email_user is not None:
+                user = authenticate(username=email_user.username, password=password)
 
         if user is not None:
             # A backend authenticated the credentials
