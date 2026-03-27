@@ -8,6 +8,8 @@ from youtube_search import YoutubeSearch
 import json
 import os
 from django.conf import settings
+from django.http import JsonResponse
+import yt_dlp
 # import cardupdate
 
 
@@ -26,7 +28,7 @@ def _bucket_name(song, source_name):
         "dhanda nyoliwala", "masoom sharma", "haryanvi", "haryanavi"
     ]
     punjabi_keywords = [
-        "punjabi", "sidhu moose wala", "karan aujla", "diljit", "ap dhillon"
+        "punjabi", "karan aujla", "diljit", "ap dhillon"
     ]
     bhakti_keywords = [
         "bhakti", "bhajan", "aart", "aarti", "hanuman", "shiv", "krishna", "ram"
@@ -145,6 +147,20 @@ def login_auth(request):
 def logout_auth(request):
     logout(request)
     return redirect('/login')
+
+def get_audio_url(request, video_id):
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'quiet': True,
+        'no_warnings': True,
+    }
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(f'https://www.youtube.com/watch?v={video_id}', download=False)
+            url = info['url']
+        return JsonResponse({'url': url})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 def playlist(request):

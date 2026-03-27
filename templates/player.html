@@ -16,8 +16,22 @@
 	</script>
 	<script>
 		function playSongNew(id, playlistId, liked=false) {
-			var iframe = document.getElementById("video");
-			iframe.src = `https://invidious.snopyta.org/embed/${id}?autoplay=1&controls=0&rel=0&fs=0&mute=1&origin=${encodeURIComponent(window.location.origin)}`;
+			buildSongQueue();
+			setCurrentSong(id);
+			var queueIndex = songQueue.indexOf(id);
+			if (queueIndex !== -1) {
+				currentQueueIndex = queueIndex;
+			}
+			var audio = document.getElementById("audio");
+			fetch('/get_audio_url/' + id)
+				.then(response => response.json())
+				.then(data => {
+					if (data.url) {
+						audio.src = data.url;
+						audio.play();
+					}
+				})
+				.catch(error => console.error('Error fetching audio URL:', error));
 		}
 	</script>
 </head>
@@ -74,9 +88,7 @@
 
         <div class="ytbPlayerCont" id="ytbPlayerCont" onclick="iframeToggle()">
           {% block iframe %}
-            <iframe class="ytbPlayer" id="video"
-                                src="https://invidious.snopyta.org/embed/{{song}}?autoplay=1&controls=0&rel=0&fs=0&mute=1&origin={{ request.scheme }}://{{ request.get_host }}" allow='autoplay; fullscreen;'
-                 frameborder="0"></iframe>
+            <audio id="audio" controls style="display:none;"></audio>
           {% endblock %}
         </div>
     </div>
@@ -228,13 +240,6 @@
                     src="{% static 'skip-back.svg' %}"
                 alt=""></img></div>
 
-        <div id='playicon' class="mainicons playicon">
-            </div>
-
-        <div id='pauseicon' class="mainicons playicon">
-            </div>
-
-        <!-- Add the new play/pause button here -->
         <button id="playPauseButton" class="mainicons playicon" aria-label="Play or pause">
             <img id="playPauseIcon" class="mainicons playicon"
                 src="{% static 'play.png' %}"
@@ -301,15 +306,10 @@ function handleThumbError(img) {
 const playPauseIcon = document.getElementById("playPauseIcon");
 
 playPauseButton.addEventListener("click", () => {
-    if (!player || typeof player.getPlayerState !== 'function') {
-        return;
-    }
-    if (player.getPlayerState() === YT.PlayerState.PLAYING) {
-        player.pauseVideo();
-        playPauseIcon.src = ICON_PLAY;
+    if (audio.paused) {
+        play();
     } else {
-        player.playVideo();
-        playPauseIcon.src = ICON_PAUSE;
+        pause();
     }
 });
     // Drag cards......
@@ -344,12 +344,30 @@ playPauseButton.addEventListener("click", () => {
     }
 
 
-    // global variable for the player
     var heart = document.getElementById('like-icon');
     heart.addEventListener("click", function () {
         document.getElementById('stroke').classList.toggle('hidden');
         document.getElementById('filled').classList.toggle('hidden');
         
+        // Send like request
+        var today = new Date();
+        var dd = String(today.getDate()).padStart(2, '0');
+        var mm = String(today.getMonth() + 1).padStart(2, '0');
+        var yyyy = today.getFullYear();
+        today = dd + '/' + mm + '/' + yyyy;
+        
+        $.ajax({
+            type:'POST',
+            url:window.location.pathname,
+            data:{
+                'title':$("#songName").text(),
+                'songid': currentSongId,
+                'channel': $("#channel").text(),
+                'date': today,
+                'duration': $("#duration").text(),
+                'csrfmiddlewaretoken': $('input[name=csrfmiddlewaretoken]').val()
+            },
+        });
     });
 
 
@@ -358,24 +376,41 @@ playPauseButton.addEventListener("click", () => {
     };
 
 
-    var songQueue = [];
-    var blockedSongIds = new Set();
-    var currentSongId = null;
-    var currentQueueIndex = -1;
     var dur = 100;
-    var pauseButton = document.getElementById("pauseicon");
-    var playButton = document.getElementById("playicon");
     var progressBar = document.getElementById("progressBar");
     var volumeBar = document.getElementById("volumeBar");
     var playbackNotice = document.getElementById("playbackNotice");
     var ytFallbackLink = document.getElementById("ytFallbackLink");
     var vol_ico = document.getElementById('vol-icon');
-    pauseButton.classList.toggle("hidden");
+    var audio = document.getElementById("audio");
+    var playPauseIcon = document.getElementById("playPauseIcon");
     document.getElementById("progressBar").value = 0;
     var progressBar = document.getElementById("progressBar");
     var playbackNotice = document.getElementById('playbackNotice');
     var ytFallbackLink = document.getElementById('ytFallbackLink');
 
+    // Audio event listeners
+    audio.addEventListener('loadedmetadata', function() {
+        dur = audio.duration;
+        let minutes = Math.floor(dur / 60);
+        let seconds = dur - minutes * 60;
+        let finalTime = str_pad_left(minutes, '0', 2) + ':' + str_pad_left(seconds, '0', 2);
+        document.getElementById("duration").innerHTML = finalTime;
+    });
+
+    audio.addEventListener('timeupdate', function() {
+        if (dur) {
+            progressBar.value = (audio.currentTime / dur) * 100;
+            let currentMinutes = Math.floor(audio.currentTime / 60);
+            let currentSeconds = audio.currentTime - currentMinutes * 60;
+            let currentTime = str_pad_left(currentMinutes, '0', 2) + ':' + str_pad_left(currentSeconds, '0', 2);
+            document.getElementById("currentDur").innerHTML = currentTime;
+        }
+    });
+
+    audio.addEventListener('ended', function() {
+        nextSong();
+    });
 
     var dur;
 
@@ -445,33 +480,6 @@ playPauseButton.addEventListener("click", () => {
         ytFallbackLink.classList.add('hidden');
     }
 
-
-
-    function playSongNew(id, playlistId, liked=false) {
-        if (!id) {
-            return;
-        }
-
-        buildSongQueue();
-        setCurrentSong(id);
-        hidePlaybackNotice();
-
-        var queueIndex = songQueue.indexOf(id);
-        if (queueIndex !== -1) {
-            currentQueueIndex = queueIndex;
-        }
-
-        pendingSongId = id;
-        showPlaybackNotice('Loading player...', false);
-        if (player && typeof player.loadVideoById === 'function') {
-            player.loadVideoById(id);
-            play();
-            return;
-        }
-
-        iframe.src = `https://invidious.snopyta.org/embed/${id}?autoplay=1&controls=0&rel=0&fs=0&mute=1&origin=${encodeURIComponent(window.location.origin)}`;
-    };
-
     function playNextPlayableSong() {
         buildSongQueue();
         if (!songQueue.length) {
@@ -506,19 +514,13 @@ playPauseButton.addEventListener("click", () => {
 
 
     function play() {
-        iframe.contentWindow.postMessage('play', 'https://invidious.snopyta.org');
-        if (pauseButton.classList.contains("hidden")) {
-            playButton.classList.toggle("hidden");
-            pauseButton.classList.toggle("hidden");
-        };
+        audio.play();
+        playPauseIcon.src = ICON_PAUSE;
     };
 
     function pause() {
-        iframe.contentWindow.postMessage('pause', 'https://invidious.snopyta.org');
-        if (playButton.classList.contains("hidden")) {
-            pauseButton.classList.toggle("hidden");
-            playButton.classList.toggle("hidden");
-        };
+        audio.pause();
+        playPauseIcon.src = ICON_PLAY;
     };
 
 
@@ -552,7 +554,7 @@ playPauseButton.addEventListener("click", () => {
 
 
     function goToStart() {
-        iframe.contentWindow.postMessage({action: 'seek', value: 0}, 'https://invidious.snopyta.org');
+        audio.currentTime = 0;
         progressBar.value = 0;
         play();
     }
@@ -560,7 +562,7 @@ playPauseButton.addEventListener("click", () => {
 
     function setVolume() {
         let v = Math.floor(document.getElementById("volumeBar").value / 5);
-        iframe.contentWindow.postMessage({action: 'setVolume', value: v}, 'https://invidious.snopyta.org');
+        audio.volume = v / 100;
         // vol_ico = document.getElementById('vol-icon');
         // if (v == 0) {
         //     vol_ico.src = ICON_VOL_0;
@@ -580,56 +582,9 @@ playPauseButton.addEventListener("click", () => {
 progressBar.addEventListener('input', function () {
     var seek = progressBar.value;
     finalSeek = (seek * dur) / 100;
-    iframe.contentWindow.postMessage({action: 'seek', value: finalSeek}, 'https://invidious.snopyta.org');
+    audio.currentTime = finalSeek;
     play()
 })
-
-
-
-
-
-
-
-
-
-
-      e.preventDefault();
-        var today = new Date();
-        var dd = String(today.getDate()).padStart(2, '0');
-        var mm = String(today.getMonth() + 1).padStart(2, '0');
-        var yyyy = today.getFullYear();
-        today = dd + '/' + mm + '/' + yyyy;
-      console.log('that',{
-          'title':$("#songName").text(),
-          'channel': $("#channel"),
-          'date': today,
-          'duration': $("#duration").text(),
-          'csrfmiddlewaretoken': $('input[name=csrfmiddlewaretoken]').val()
-        })
-
-
-
-        if (!player || typeof player.getVideoData !== 'function') {
-            showPlaybackNotice('Player is not ready yet. Try again in a second.', false);
-            return;
-        }
-
-        var youtube_video_id = player.getVideoData()['video_id'];
-      $.ajax({
-        type:'POST',
-        url:window.location.pathname,
-        data:{
-          'title':$("#songName").text(),
-          'songid':youtube_video_id,
-          'channel': $("#channel").text(),
-          'date': today,
-          'duration': $("#duration").text(),
-          'csrfmiddlewaretoken': $('input[name=csrfmiddlewaretoken]').val()
-        },
-
-      })
-
-    });
 </script>
 </body>
 

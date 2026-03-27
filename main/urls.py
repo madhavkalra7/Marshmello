@@ -9,6 +9,7 @@ urlpatterns = [
     path("login/", views.login_auth, name="login_auth"),  
     path("logout/", views.logout_auth, name="logout_auth"),
     path("playlist/", views.playlist, name='your_playlists'),
-    path("search/", views.search, name='search_page') 
+    path("search/", views.search, name='search_page'),
+    path("get_audio_url/<str:video_id>/", views.get_audio_url, name='get_audio_url') 
      
 ]
