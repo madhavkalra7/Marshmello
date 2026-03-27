@@ -20,7 +20,7 @@ active
                 {% for card in playlist %}
                 <div class="card c1">
                     <div class="albumcover">
-                        <img class="albumimg" src="{{ card.thumbnails.0 }}" alt="" srcset=""></img>
+                        <img class="albumimg" src="{{ card.thumbnails.0 }}" alt="" srcset="" onerror="handleThumbError(this)"></img>
                         <div class="albumplay" data-song-id="{{ card.id }}" onclick='playSong("{{ card.id }}","none",true)'><img
                             src="{% static 'play.png' %}"
                                 alt=""></img></div>

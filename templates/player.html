@@ -5,7 +5,6 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<link rel="icon" href="https://cdn.d0iscordapp.com/icons/715958380556058684/773d6583cd1d7aef41e701783d353aef.webp?size=128" type="image/x-icon">
 <meta name="description" itemprop="description"
         content="Play your playlists and favourites tracks, albums, and artists of YouTube with a Spotify styled UI" />
     <meta name="keywords"
@@ -273,6 +272,24 @@ const ICON_VOL_0 = "{% static 'vol-0.svg' %}";
 const ICON_VOL_1 = "{% static 'vol-1.svg' %}";
 const ICON_VOL_2 = "{% static 'vol-2.svg' %}";
 const ICON_VOL_3 = "{% static 'vol-3.svg' %}";
+const ICON_FALLBACK_COVER = "{% static 'marshmello_favicon.png' %}";
+
+function handleThumbError(img) {
+    if (!img) {
+        return;
+    }
+    const src = img.getAttribute('src') || '';
+    if (src.includes('/hq720.jpg')) {
+        img.src = src.replace('/hq720.jpg', '/hqdefault.jpg');
+        return;
+    }
+    if (src.includes('/maxresdefault.jpg')) {
+        img.src = src.replace('/maxresdefault.jpg', '/hqdefault.jpg');
+        return;
+    }
+    img.onerror = null;
+    img.src = ICON_FALLBACK_COVER;
+}
 
     const playPauseButton = document.getElementById("playPauseButton");
 const playPauseIcon = document.getElementById("playPauseIcon");

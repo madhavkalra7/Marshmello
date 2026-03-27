@@ -60,7 +60,7 @@ active
     <form action="" method="get">
                 <div class="playlist__song playlist__row" data-song-id="{{ song.song_youtube_id }}" onclick='playSong("{{ song.song_youtube_id }}","false","true")'>
         <div class="playlist__headerTitle">
-          <img class="playlist__albumimg" src="{{song.song_albumsrc}}" alt =''/>
+          <img class="playlist__albumimg" src="{{song.song_albumsrc}}" alt ='' onerror="handleThumbError(this)"/>
 
           <div class="playlist__songTitle ellipsis_one_line">
           {{song.song_title}}
