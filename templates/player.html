@@ -16,12 +16,11 @@
 	</script>
 	<script>
 		function playSongNew(id, playlistId, liked=false) {
-			buildSongQueue();
-			setCurrentSong(id);
-			var queueIndex = songQueue.indexOf(id);
-			if (queueIndex !== -1) {
-				currentQueueIndex = queueIndex;
+			if (!id) {
+				return;
 			}
+
+			// Simple version without queue for now
 			var audio = document.getElementById("audio");
 			fetch('/get_audio_url/' + id)
 				.then(response => response.json())
@@ -501,9 +500,35 @@ playPauseButton.addEventListener("click", () => {
         showPlaybackNotice('Most tracks in this list cannot be embedded. Use Watch on YouTube.', true);
     }
 
+    function playSongNew(id, playlistId, liked=false) {
+        if (!id) {
+            return;
+        }
 
+        buildSongQueue();
+        setCurrentSong(id);
+        hidePlaybackNotice();
 
+        var queueIndex = songQueue.indexOf(id);
+        if (queueIndex !== -1) {
+            currentQueueIndex = queueIndex;
+        }
 
+        fetch(`/get_audio_url/${id}/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.url) {
+                    audio.src = data.url;
+                    play();
+                } else {
+                    showPlaybackNotice('Failed to load audio.', true);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching audio URL:', error);
+                showPlaybackNotice('Error loading audio.', true);
+            });
+    };
 
     function nextSong(){
         if (songQueue.length) {
