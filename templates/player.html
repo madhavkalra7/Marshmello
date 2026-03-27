@@ -10,6 +10,9 @@
         content="Play your playlists and favourites tracks, albums, and artists of YouTube with a Spotify styled UI" />
     <meta name="keywords"
         content="convert, convert playlists, transfer, syncing, smart links, free, apple music, streaming services, spotify, youtube" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 	<link rel="stylesheet" href="{% static 'player.css' %}?{% now " U " %}"> {% block css %} {% endblock %}
 	<title>Marshmello</title>
     <link rel="icon" type="image/x-icon" href="/static/marshmello_favicon.png">
@@ -101,7 +104,7 @@
                         d="M349.714 347.937l93.714 109.969-16.254 13.969-93.969-109.969q-48.508 36.825-109.207 36.825-36.826 0-70.476-14.349t-57.905-38.603-38.603-57.905-14.349-70.476 14.349-70.476 38.603-57.905 57.905-38.603 70.476-14.349 70.476 14.349 57.905 38.603 38.603 57.905 14.349 70.476q0 37.841-14.73 71.619t-40.889 58.921zM224 377.397q43.428 0 80.254-21.461t58.286-58.286 21.461-80.254-21.461-80.254-58.286-58.285-80.254-21.46-80.254 21.46-58.285 58.285-21.46 80.254 21.46 80.254 58.285 58.286 80.254 21.461z"
                         fill="black" fill-rule="evenodd"></path>
               </svg>
-            <input class="searchBar" placeholder="Search for song" type="text" name="search" id="searchBar" required>
+            <input class="searchBar" placeholder="Search songs, artists, moods" type="text" name="search" id="searchBar" required>
             </div>
 
             </form>
@@ -232,7 +235,7 @@
             </div>
 
         <!-- Add the new play/pause button here -->
-        <button id="playPauseButton" class="mainicons playicon">
+        <button id="playPauseButton" class="mainicons playicon" aria-label="Play or pause">
             <img id="playPauseIcon" class="mainicons playicon"
                 src="/static/play.png"
                 alt=""></img>
