@@ -7,6 +7,7 @@ from django.contrib.auth import authenticate,login,logout
 from youtube_search import YoutubeSearch
 import json
 import os
+import time
 from django.conf import settings
 from django.http import JsonResponse
 import yt_dlp
@@ -18,6 +19,93 @@ with open(os.path.join(settings.BASE_DIR, 'card.json'), 'r') as f:
     CONTAINER = json.load(f)
 
 
+CURATED_CATEGORY_QUERIES = {
+    "Haryanvi": [
+        "latest haryanvi songs",
+        "masoom sharma songs",
+        "dhanda nyoliwala songs",
+    ],
+    "Punjabi": [
+        "latest punjabi songs",
+        "karan aujla songs",
+        "diljit dosanjh songs",
+        "shubh punjabi songs",
+    ],
+    "Bhakti": [
+        "hanuman bhajan",
+        "krishna bhajan",
+        "shiv bhajan",
+        "ram bhajan",
+    ],
+}
+CURATED_BUCKET_CACHE = {"Haryanvi": [], "Punjabi": [], "Bhakti": []}
+CURATED_BUCKET_CACHE_TS = 0
+CURATED_BUCKET_CACHE_TTL_SECONDS = 6 * 60 * 60
+
+
+def _song_from_search_result(search_item):
+    video_id = (search_item.get("id") or "").strip()
+    if not video_id:
+        return None
+
+    thumbnails = search_item.get("thumbnails") or []
+    thumbnail = thumbnails[0] if thumbnails else f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg"
+    title = (search_item.get("title") or "Untitled Song").strip()
+    channel = (search_item.get("channel") or "Unknown Artist").strip()
+
+    return [thumbnail, title, channel, video_id]
+
+
+def _dedupe_songs_by_video_id(songs):
+    unique_songs = []
+    seen_video_ids = set()
+
+    for song in songs:
+        if len(song) < 4:
+            continue
+        video_id = str(song[3]).strip()
+        if not video_id or video_id in seen_video_ids:
+            continue
+        seen_video_ids.add(video_id)
+        unique_songs.append(song)
+
+    return unique_songs
+
+
+def _get_curated_bucket_songs():
+    global CURATED_BUCKET_CACHE
+    global CURATED_BUCKET_CACHE_TS
+
+    now = int(time.time())
+    if now - CURATED_BUCKET_CACHE_TS <= CURATED_BUCKET_CACHE_TTL_SECONDS and any(CURATED_BUCKET_CACHE.values()):
+        return CURATED_BUCKET_CACHE
+
+    fetched = {"Haryanvi": [], "Punjabi": [], "Bhakti": []}
+
+    for bucket_name, queries in CURATED_CATEGORY_QUERIES.items():
+        bucket_songs = []
+        for query in queries:
+            try:
+                search_results = YoutubeSearch(query, max_results=8).to_dict()
+            except Exception:
+                continue
+
+            for search_item in search_results:
+                song = _song_from_search_result(search_item)
+                if song is not None:
+                    bucket_songs.append(song)
+
+            bucket_songs = _dedupe_songs_by_video_id(bucket_songs)
+            if len(bucket_songs) >= 18:
+                break
+
+        fetched[bucket_name] = bucket_songs[:18]
+
+    CURATED_BUCKET_CACHE = fetched
+    CURATED_BUCKET_CACHE_TS = now
+    return CURATED_BUCKET_CACHE
+
+
 def _bucket_name(song, source_name):
     title = str(song[1]).lower() if len(song) > 1 else ""
     artist = str(song[2]).lower() if len(song) > 2 else ""
@@ -25,13 +113,13 @@ def _bucket_name(song, source_name):
     source = (source_name or "").strip().lower()
 
     haryanvi_keywords = [
-        "dhanda nyoliwala", "masoom sharma", "haryanvi", "haryanavi"
+        "dhanda nyoliwala", "masoom sharma", "haryanvi", "haryanavi", "renuka panwar", "sapna"
     ]
     punjabi_keywords = [
-        "punjabi", "karan aujla", "diljit", "ap dhillon"
+        "punjabi", "karan aujla", "diljit", "ap dhillon", "shubh", "sidhu moose wala", "gippy", "jass"
     ]
     bhakti_keywords = [
-        "bhakti", "bhajan", "aart", "aarti", "hanuman", "shiv", "krishna", "ram"
+        "bhakti", "bhajan", "aarti", "hanuman", "shiv", "krishna", "ram", "mahadev", "devotional"
     ]
 
     if any(keyword in text for keyword in bhakti_keywords):
@@ -40,6 +128,12 @@ def _bucket_name(song, source_name):
         return "Haryanvi"
     if any(keyword in text for keyword in punjabi_keywords):
         return "Punjabi"
+    if "bhakti" in source or "bhajan" in source:
+        return "Bhakti"
+    if "punjabi" in source:
+        return "Punjabi"
+    if "haryanvi" in source:
+        return "Haryanvi"
     if source == "spanish":
         return "Spanish"
     return "English"
@@ -61,15 +155,22 @@ def _build_home_container(container):
             bucket = _bucket_name(song, source_name)
             buckets[bucket].append(song)
 
+    curated_buckets = _get_curated_bucket_songs()
+    for bucket_name in ["Haryanvi", "Punjabi", "Bhakti"]:
+        buckets[bucket_name].extend(curated_buckets.get(bucket_name, []))
+
+    for bucket_name in buckets.keys():
+        buckets[bucket_name] = _dedupe_songs_by_video_id(buckets[bucket_name])
+
     ordered = [
-        ["Haryanvi", buckets["Haryanvi"], ""],
-        ["Punjabi", buckets["Punjabi"], ""],
-        ["English", buckets["English"], ""],
-        ["Bhakti", buckets["Bhakti"], ""],
+        ["Haryanvi", buckets["Haryanvi"], "haryanvi"],
+        ["Punjabi", buckets["Punjabi"], "punjabi"],
+        ["English", buckets["English"], "english"],
+        ["Bhakti", buckets["Bhakti"], "bhakti"],
     ]
 
     if buckets["Spanish"]:
-        ordered.append(["Spanish", buckets["Spanish"], ""])
+        ordered.append(["Spanish", buckets["Spanish"], "spanish"])
 
     return ordered
 

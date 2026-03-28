@@ -156,14 +156,14 @@
             {% for playlist in CONTAINER %}
             <div class="category">
                 <div class="catTitle">
-                    <span class='label catName underline-on-hover'>{{ playlist.0 }}</span>
-                    <span class='label seeall underline-on-hover'>SEE ALL >></span>
+                    <span class='label catName underline-on-hover'>{{ playlist.0 }} Songs <span class="catCount">({{ playlist.1|length }})</span></span>
+                    <button type="button" class='label seeall seeall-toggle underline-on-hover' data-target="category-{{ playlist.2 }}">SEE ALL >></button>
                 </div>
-                            <div class="cardContainer">
+                            <div class="cardContainer" id="category-{{ playlist.2 }}">
                     {% for card in playlist.1 %}
                     <div class="card c1">
                         <div class="albumcover">
-                            <a href="https://youtu.be/{{ card.3 }}?si=euoApd_J6XWCMRVl" target="_blank"><img class="albumimg" src="https://img.youtube.com/vi/{{ card.3 }}/mqdefault.jpg" alt="" srcset=""></a>
+                            <a href="https://youtu.be/{{ card.3 }}?si=euoApd_J6XWCMRVl" target="_blank"><img class="albumimg" src="https://img.youtube.com/vi/{{ card.3 }}/mqdefault.jpg" alt="" srcset="" onerror="handleThumbError(this)"></a>
                                 <div class="albumplay" data-song-id="{{ card.3 }}" data-song-title="{{ card.1|escape }}" data-song-channel="{{ card.2|escape }}" onclick='playSongNew("{{ card.3 }}","none",true,this)'><img
                                     src="{% static 'play.png' %}"
                                     alt="">
@@ -357,6 +357,32 @@ function bindCardDrag() {
     }
 }
 
+function bindSeeAllToggles() {
+    const seeAllButtons = document.getElementsByClassName('seeall-toggle');
+    for (let index = 0; index < seeAllButtons.length; index++) {
+        let button = seeAllButtons[index];
+        if (button.dataset.bound === 'true') {
+            continue;
+        }
+
+        button.dataset.bound = 'true';
+        button.addEventListener('click', function () {
+            const targetId = button.dataset.target;
+            if (!targetId) {
+                return;
+            }
+
+            const cards = document.getElementById(targetId);
+            if (!cards) {
+                return;
+            }
+
+            const isExpanded = cards.classList.toggle('expanded');
+            button.textContent = isExpanded ? 'SHOW LESS <<' : 'SEE ALL >>';
+        });
+    }
+}
+
 function updatePlayPauseUi(isPlaying) {
     playPauseIcon.src = isPlaying ? ICON_PAUSE : ICON_PLAY;
     playPauseButton.classList.toggle('is-playing', isPlaying);
@@ -417,6 +443,7 @@ function refreshMainFromHtml(htmlText) {
     }
     currentMain.innerHTML = incomingMain.innerHTML;
     bindCardDrag();
+    bindSeeAllToggles();
     buildSongQueue();
     return true;
 }
@@ -491,6 +518,7 @@ window.addEventListener('popstate', function () {
 });
 
 bindCardDrag();
+bindSeeAllToggles();
 
 
     var heart = document.getElementById('like-icon');
