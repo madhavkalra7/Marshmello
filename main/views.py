@@ -47,6 +47,8 @@ CURATED_CATEGORY_QUERIES = {
 CURATED_BUCKET_CACHE = {"Haryanvi": [], "Punjabi": [], "Bhakti": []}
 CURATED_BUCKET_CACHE_TS = 0
 CURATED_BUCKET_CACHE_TTL_SECONDS = 6 * 60 * 60
+AUDIO_URL_CACHE = {}
+AUDIO_URL_CACHE_TTL_SECONDS = 12 * 60
 AI_CLIENT = None
 
 
@@ -327,6 +329,11 @@ def logout_auth(request):
 
 
 def _extract_playable_audio_url(video_id):
+    cached_entry = AUDIO_URL_CACHE.get(video_id)
+    now = int(time.time())
+    if cached_entry and cached_entry.get("expires_at", 0) > now:
+        return cached_entry.get("url")
+
     ydl_opts = {
         "format": "bestaudio/best",
         "quiet": True,
@@ -358,6 +365,10 @@ def _extract_playable_audio_url(video_id):
 
     direct_url = (info or {}).get("url")
     if direct_url:
+        AUDIO_URL_CACHE[video_id] = {
+            "url": direct_url,
+            "expires_at": now + AUDIO_URL_CACHE_TTL_SECONDS,
+        }
         return direct_url
 
     formats = (info or {}).get("formats") or []
@@ -373,7 +384,12 @@ def _extract_playable_audio_url(video_id):
             ),
             reverse=True,
         )
-        return playable_audio_formats[0]["url"]
+        best_url = playable_audio_formats[0]["url"]
+        AUDIO_URL_CACHE[video_id] = {
+            "url": best_url,
+            "expires_at": now + AUDIO_URL_CACHE_TTL_SECONDS,
+        }
+        return best_url
 
     raise Exception("No playable audio URL found")
 

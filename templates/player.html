@@ -257,6 +257,11 @@ let lastPlayTrackedSongId = null;
 let aiMode = 'chat';
 let sourceFallbackTriedForSong = null;
 let activePlayRequestToken = 0;
+let activeAudioUrlAbortController = null;
+let isUserSeeking = false;
+
+const directAudioUrlCache = new Map();
+const DIRECT_AUDIO_URL_CACHE_TTL_MS = 8 * 60 * 1000;
 
 let audioContext = null;
 let sourceNode = null;
@@ -333,12 +338,37 @@ function buildAudioStreamEndpoint(songId) {
     return '/get_audio_stream/' + encodeURIComponent(songId) + '/';
 }
 
-function fetchDirectAudioUrl(songId) {
+function getCachedDirectAudioUrl(songId) {
+    const cached = directAudioUrlCache.get(songId);
+    if (!cached) {
+        return null;
+    }
+
+    if (cached.expiresAt <= Date.now()) {
+        directAudioUrlCache.delete(songId);
+        return null;
+    }
+
+    return cached.url;
+}
+
+function setCachedDirectAudioUrl(songId, url) {
+    if (!songId || !url) {
+        return;
+    }
+    directAudioUrlCache.set(songId, {
+        url: url,
+        expiresAt: Date.now() + DIRECT_AUDIO_URL_CACHE_TTL_MS
+    });
+}
+
+function fetchDirectAudioUrl(songId, signal) {
     return fetch(buildAudioUrlEndpoint(songId), {
         method: 'GET',
         headers: {
             'Accept': 'application/json'
-        }
+        },
+        signal: signal
     }).then(function (response) {
         return response.json().then(function (data) {
             if (!response.ok || !data || !data.url) {
@@ -347,6 +377,42 @@ function fetchDirectAudioUrl(songId) {
             return data.url;
         });
     });
+}
+
+function resolveDirectAudioUrl(songId, signal) {
+    const cachedUrl = getCachedDirectAudioUrl(songId);
+    if (cachedUrl) {
+        return Promise.resolve(cachedUrl);
+    }
+
+    return fetchDirectAudioUrl(songId, signal).then(function (url) {
+        setCachedDirectAudioUrl(songId, url);
+        return url;
+    });
+}
+
+function prefetchSongAudioUrl(songId) {
+    if (!songId || getCachedDirectAudioUrl(songId)) {
+        return;
+    }
+
+    resolveDirectAudioUrl(songId).catch(function () {
+        return null;
+    });
+}
+
+function prefetchUpcomingSongs() {
+    if (currentQueueIndex < 0 || !songQueue.length) {
+        return;
+    }
+
+    const firstNextIndex = (currentQueueIndex + 1) % songQueue.length;
+    const secondNextIndex = (currentQueueIndex + 2) % songQueue.length;
+    prefetchSongAudioUrl(songQueue[firstNextIndex]);
+
+    if (songQueue.length > 2) {
+        prefetchSongAudioUrl(songQueue[secondNextIndex]);
+    }
 }
 
 function setAudioSource(url, crossOriginEnabled) {
@@ -361,16 +427,25 @@ function setAudioSource(url, crossOriginEnabled) {
 function startSongPlayback(songId) {
     const playToken = ++activePlayRequestToken;
     sourceFallbackTriedForSong = null;
+    if (activeAudioUrlAbortController && typeof activeAudioUrlAbortController.abort === 'function') {
+        activeAudioUrlAbortController.abort();
+    }
+    activeAudioUrlAbortController = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const requestSignal = activeAudioUrlAbortController ? activeAudioUrlAbortController.signal : undefined;
 
-    fetchDirectAudioUrl(songId)
+    resolveDirectAudioUrl(songId, requestSignal)
         .then(function (directUrl) {
             if (playToken !== activePlayRequestToken || currentSongId !== songId) {
                 return;
             }
             setAudioSource(directUrl, true);
             play();
+            prefetchUpcomingSongs();
         })
-        .catch(function () {
+        .catch(function (error) {
+            if (error && error.name === 'AbortError') {
+                return;
+            }
             if (playToken !== activePlayRequestToken || currentSongId !== songId) {
                 return;
             }
@@ -413,6 +488,10 @@ function formatTime(timeInSeconds) {
 }
 
 function updateProgressUI() {
+    if (isUserSeeking) {
+        return;
+    }
+
     const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : dur;
     if (!Number.isFinite(duration) || duration <= 0) {
         progressBar.value = 0;
@@ -815,6 +894,33 @@ function runCommand(commandText) {
         });
 }
 
+function getSeekTargetTime() {
+    const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : dur;
+    if (!Number.isFinite(duration) || duration <= 0) {
+        return null;
+    }
+
+    return (Number(progressBar.value) * duration) / 100;
+}
+
+function previewSeekTime() {
+    const target = getSeekTargetTime();
+    if (target === null) {
+        return;
+    }
+    document.getElementById('currentDur').innerHTML = formatTime(target);
+}
+
+function commitSeek() {
+    const target = getSeekTargetTime();
+    if (target === null) {
+        return;
+    }
+
+    audio.currentTime = target;
+    document.getElementById('currentDur').innerHTML = formatTime(target);
+}
+
 function bindSearchPageEnhancements() {
     const modeButtons = document.querySelectorAll('.search-mode-btn');
     if (!modeButtons.length) {
@@ -906,12 +1012,25 @@ playPauseButton.addEventListener('click', function () {
 });
 
 progressBar.addEventListener('input', function () {
-    const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : dur;
-    if (!Number.isFinite(duration) || duration <= 0) {
+    if (isUserSeeking) {
+        previewSeekTime();
         return;
     }
-    audio.currentTime = (Number(progressBar.value) * duration) / 100;
-    updateProgressUI();
+    commitSeek();
+});
+
+progressBar.addEventListener('change', function () {
+    commitSeek();
+    isUserSeeking = false;
+});
+
+progressBar.addEventListener('pointerdown', function () {
+    isUserSeeking = true;
+});
+
+progressBar.addEventListener('pointerup', function () {
+    commitSeek();
+    isUserSeeking = false;
 });
 
 audio.addEventListener('loadedmetadata', function () {
