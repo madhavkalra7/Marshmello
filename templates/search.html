@@ -21,7 +21,7 @@ active
                 <div class="card c1">
                     <div class="albumcover">
                         <img class="albumimg" src="https://img.youtube.com/vi/{{ card.id }}/mqdefault.jpg" alt="" srcset="" onerror="handleThumbError(this)"></img>
-                        <div class="albumplay" data-song-id="{{ card.id }}" onclick='playSongNew("{{ card.id }}","none",true)'><img
+                        <div class="albumplay" data-song-id="{{ card.id }}" data-song-title="{{ card.title|escape }}" data-song-channel="{{ card.channel|escape }}" onclick='playSongNew("{{ card.id }}","none",true,this)'><img
                             src="{% static 'play.png' %}"
                                 alt=""></img></div>
                     </div>

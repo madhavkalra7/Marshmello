@@ -580,9 +580,18 @@ input:invalid {
     cursor: pointer;
 }
 
+.albumplay::before {
+    content: "";
+    width: 0;
+    height: 0;
+    margin-left: 3px;
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    border-left: 13px solid #0b1c33;
+}
+
 .albumplay img {
-    width: 58%;
-    filter: brightness(0) saturate(100%);
+    display: none;
 }
 
 .card:hover .albumplay {
@@ -725,10 +734,20 @@ input:invalid {
     box-shadow: 0 18px 30px rgba(255, 159, 69, 0.44);
 }
 
+#playPauseButton.is-playing {
+    background: linear-gradient(145deg, #47d1ff, #7cff7a);
+    box-shadow: 0 16px 30px rgba(71, 209, 255, 0.38);
+}
+
 #playPauseIcon {
     width: 22px;
     height: 22px;
     opacity: 1;
+    transition: transform 0.18s ease;
+}
+
+#playPauseButton:active #playPauseIcon {
+    transform: scale(0.92);
 }
 
 .slider {
