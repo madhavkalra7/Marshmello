@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Any, Dict
 
+from dotenv import dotenv_values
 from openai import OpenAI
 
 from .prompts import (
@@ -30,11 +32,43 @@ class AIClientError(RuntimeError):
     """Raised when AI client cannot complete a request."""
 
 
+def _resolve_openai_api_key() -> str:
+    env_names = [
+        "OPENAI_API_KEY",
+        "OPENAI_APIKEY",
+        "OPENAI_KEY",
+        "openai_api_key",
+        "openai_apikey",
+        "openai_key",
+    ]
+
+    for name in env_names:
+        value = (os.getenv(name) or "").strip()
+        if value:
+            return value
+
+    # Last-resort local fallback for environments where OS env vars are not wired correctly.
+    env_path = Path(__file__).resolve().parents[2] / ".env"
+    if env_path.exists():
+        values = dotenv_values(str(env_path))
+        for name in env_names:
+            value = str(values.get(name) or "").strip()
+            if value:
+                return value
+
+    return ""
+
+
 class MarshmelloAIClient:
     def __init__(self) -> None:
-        api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
+        api_key = _resolve_openai_api_key().strip()
+        if api_key.lower().startswith("bearer "):
+            api_key = api_key[7:].strip()
         if not api_key:
-            raise AIClientError("OPENAI_API_KEY is missing.")
+            raise AIClientError(
+                "OPENAI_API_KEY is missing. Set OPENAI_API_KEY (or OPENAI_APIKEY/OPENAI_KEY) "
+                "in the running deployment environment and redeploy."
+            )
         self._client = OpenAI(api_key=api_key)
 
     def _call_json(self, system_prompt: str, user_prompt: str, max_completion_tokens: int = DEFAULT_MAX_COMPLETION_TOKENS) -> Dict[str, Any]:

@@ -249,6 +249,28 @@ def _search_songs(query, max_results=10):
 def _group_search_cards(song_list):
     return [song_list[:10:2], song_list[1:10:2]]
 
+
+def _fallback_command_parse(command_text):
+    text = str(command_text or "").strip().lower()
+    if not text:
+        return {"action": "unknown", "confidence": 0.0, "reason": "Empty command."}
+
+    rules = [
+        ("pause", ["pause", "stop"]),
+        ("play_next", ["next", "skip"]),
+        ("play_previous", ["previous", "back", "restart"]),
+        ("repeat", ["repeat", "replay"]),
+        ("play_similar", ["similar", "related"]),
+        ("toggle_like", ["like", "favorite", "favourite", "heart"]),
+        ("play", ["play", "resume", "start"]),
+    ]
+
+    for action, keywords in rules:
+        if any(keyword in text for keyword in keywords):
+            return {"action": action, "confidence": 0.72, "reason": "Fallback parser rule matched."}
+
+    return {"action": "unknown", "confidence": 0.35, "reason": "Fallback parser could not infer action."}
+
 def default(request):
     global CONTAINER
     if request.user.is_anonymous:
@@ -581,7 +603,7 @@ def ai_chat(request):
     try:
         structured = _get_ai_client().build_music_chat_query(prompt)
     except AIClientError as exc:
-        return JsonResponse({"ok": False, "error": str(exc)}, status=500)
+        structured = {"query": prompt, "mood": "mixed", "genre": "mixed"}
     except Exception:
         structured = {"query": prompt, "mood": "mixed", "genre": "mixed"}
 
@@ -610,7 +632,11 @@ def ai_playlist(request):
     try:
         generated = _get_ai_client().build_smart_playlist(prompt)
     except AIClientError as exc:
-        return JsonResponse({"ok": False, "error": str(exc)}, status=500)
+        generated = {
+            "title": "Smart Playlist",
+            "description": f"Generated from: {prompt}",
+            "queries": [prompt],
+        }
     except Exception:
         generated = {
             "title": "AI Playlist",
@@ -668,7 +694,7 @@ def ai_command(request):
     try:
         parsed = _get_ai_client().parse_player_command(command)
     except AIClientError as exc:
-        return JsonResponse({"ok": False, "error": str(exc)}, status=500)
+        parsed = _fallback_command_parse(command)
     except Exception:
         parsed = {"action": "unknown", "confidence": 0.0, "reason": "Fallback parser used."}
 
@@ -688,7 +714,13 @@ def ai_search(request):
     try:
         plan = _get_ai_client().build_hybrid_search_plan(prompt)
     except AIClientError as exc:
-        return JsonResponse({"ok": False, "error": str(exc)}, status=500)
+        plan = {
+            "keyword_query": prompt,
+            "semantic_query": prompt,
+            "mood": "any",
+            "genre": "any",
+            "era": "any",
+        }
     except Exception:
         plan = {
             "keyword_query": prompt,

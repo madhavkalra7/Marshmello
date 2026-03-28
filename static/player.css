@@ -1456,9 +1456,7 @@ input:invalid {
     }
 
     .commandBar {
-        width: min(240px, 64vw);
-        margin-left: 4px;
-        height: 38px;
+        display: none;
     }
 
     .main {
