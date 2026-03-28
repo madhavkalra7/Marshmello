@@ -147,10 +147,11 @@
 
             <form id="like-form">
                 {% csrf_token %}
-                <div class="like-icon mainicons" id="like-icon" title="Toggle like">
-                    <img class="heart" id="stroke" style="width:55px;" src="/static/heart.png" alt="Like">
-                    <img class="heart hidden" id="filled" style="width:55px;" src="/static/hidden_heart.png" alt="Liked">
-                </div>
+                <button type="button" class="like-icon" id="like-icon" title="Add to liked songs" aria-label="Toggle like" aria-pressed="false">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path id="like-icon-path" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z"></path>
+                    </svg>
+                </button>
             </form>
         </div>
 
@@ -288,8 +289,7 @@ const volIcon = document.getElementById('vol-icon');
 const playbackNotice = document.getElementById('playbackNotice');
 const ytFallbackLink = document.getElementById('ytFallbackLink');
 const likeIcon = document.getElementById('like-icon');
-const heartStroke = document.getElementById('stroke');
-const heartFilled = document.getElementById('filled');
+const likeIconPath = document.getElementById('like-icon-path');
 const ytbPlayerCont = document.getElementById('ytbPlayerCont');
 
 const commandBar = document.getElementById('commandBar');
@@ -304,6 +304,18 @@ const visualizerCanvas = document.getElementById('musicVisualizer');
 const visualizerCtx = visualizerCanvas ? visualizerCanvas.getContext('2d') : null;
 
 let ytEmbedFrame = null;
+let ytPlayerHost = null;
+let ytPlayer = null;
+let ytApiReady = false;
+let ytProgressTimer = null;
+let pendingYoutubeVideoId = null;
+
+window.onYouTubeIframeAPIReady = function () {
+    ytApiReady = true;
+    if (pendingYoutubeVideoId) {
+        startYoutubeEmbedPlayback(pendingYoutubeVideoId);
+    }
+};
 
 function htmlEscape(value) {
     return String(value || '')
@@ -435,34 +447,135 @@ function setAudioSource(url, crossOriginEnabled) {
     audio.src = url;
 }
 
+function ensureYoutubeApiScript() {
+    if (window.YT && window.YT.Player) {
+        ytApiReady = true;
+        return;
+    }
+
+    if (document.getElementById('yt-iframe-api-script')) {
+        return;
+    }
+
+    const script = document.createElement('script');
+    script.id = 'yt-iframe-api-script';
+    script.src = 'https://www.youtube.com/iframe_api';
+    script.async = true;
+    document.head.appendChild(script);
+}
+
+function getYoutubeDuration() {
+    if (!ytPlayer || typeof ytPlayer.getDuration !== 'function') {
+        return 0;
+    }
+    const value = Number(ytPlayer.getDuration());
+    return Number.isFinite(value) ? value : 0;
+}
+
+function getYoutubeCurrentTime() {
+    if (!ytPlayer || typeof ytPlayer.getCurrentTime !== 'function') {
+        return 0;
+    }
+    const value = Number(ytPlayer.getCurrentTime());
+    return Number.isFinite(value) ? value : 0;
+}
+
+function startYoutubeProgressMonitor() {
+    if (ytProgressTimer) {
+        return;
+    }
+
+    ytProgressTimer = setInterval(function () {
+        if (backendStreamingUnavailable) {
+            updateProgressUI();
+        }
+    }, 500);
+}
+
+function stopYoutubeProgressMonitor() {
+    if (!ytProgressTimer) {
+        return;
+    }
+    clearInterval(ytProgressTimer);
+    ytProgressTimer = null;
+}
+
+function onYoutubePlayerReady(songId) {
+    startYoutubeProgressMonitor();
+    const ytDuration = getYoutubeDuration();
+    if (ytDuration > 0) {
+        dur = ytDuration;
+        document.getElementById('duration').innerHTML = formatTime(ytDuration);
+    }
+
+    try {
+        ytPlayer.loadVideoById(songId);
+    } catch (error) {
+        if (typeof ytPlayer.playVideo === 'function') {
+            ytPlayer.playVideo();
+        }
+    }
+
+    setVolume();
+}
+
+function onYoutubePlayerStateChange(event) {
+    if (!event || typeof event.data === 'undefined' || !window.YT || !window.YT.PlayerState) {
+        return;
+    }
+
+    if (event.data === window.YT.PlayerState.PLAYING) {
+        updatePlayPauseUi(true);
+        hidePlaybackNotice();
+        startYoutubeProgressMonitor();
+    } else if (event.data === window.YT.PlayerState.PAUSED) {
+        updatePlayPauseUi(false);
+        stopYoutubeProgressMonitor();
+    } else if (event.data === window.YT.PlayerState.ENDED) {
+        updatePlayPauseUi(false);
+        stopYoutubeProgressMonitor();
+        progressBar.value = 0;
+        document.getElementById('currentDur').innerHTML = '00:00';
+        nextSong();
+    }
+}
+
+function onYoutubePlayerError() {
+    showPlaybackNotice('YouTube player could not load this track.', true);
+    updatePlayPauseUi(false);
+}
+
 function ensureYoutubeEmbedFrame() {
     if (ytEmbedFrame) {
         return ytEmbedFrame;
     }
 
-    ytEmbedFrame = document.createElement('iframe');
-    ytEmbedFrame.id = 'ytFallbackEmbed';
-    ytEmbedFrame.width = '100%';
-    ytEmbedFrame.height = '100%';
-    ytEmbedFrame.style.border = '0';
-    ytEmbedFrame.classList.add('hidden');
-    ytEmbedFrame.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
-    ytEmbedFrame.setAttribute('allowfullscreen', '');
-    ytEmbedFrame.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
-
-    if (ytbPlayerCont) {
-        ytbPlayerCont.appendChild(ytEmbedFrame);
+    if (!ytPlayerHost) {
+        ytPlayerHost = document.createElement('div');
+        ytPlayerHost.id = 'ytFallbackHost';
+        ytPlayerHost.className = 'yt-fallback-host';
+        document.body.appendChild(ytPlayerHost);
     }
+
+    ytEmbedFrame = document.createElement('div');
+    ytEmbedFrame.id = 'ytFallbackEmbed';
+    ytEmbedFrame.style.width = '100%';
+    ytEmbedFrame.style.height = '100%';
+    ytEmbedFrame.classList.add('hidden');
+
+    ytPlayerHost.appendChild(ytEmbedFrame);
 
     return ytEmbedFrame;
 }
 
 function stopYoutubeEmbedPlayback() {
-    if (!ytEmbedFrame) {
-        return;
+    if (ytPlayer && typeof ytPlayer.pauseVideo === 'function') {
+        ytPlayer.pauseVideo();
     }
-    ytEmbedFrame.src = 'about:blank';
-    ytEmbedFrame.classList.add('hidden');
+    if (ytEmbedFrame) {
+        ytEmbedFrame.classList.add('hidden');
+    }
+    stopYoutubeProgressMonitor();
 }
 
 function startYoutubeEmbedPlayback(songId) {
@@ -470,28 +583,54 @@ function startYoutubeEmbedPlayback(songId) {
         return;
     }
 
+    pendingYoutubeVideoId = songId;
     audio.pause();
     audio.removeAttribute('src');
     audio.load();
+    ensureYoutubeApiScript();
 
     const frame = ensureYoutubeEmbedFrame();
-    if (ytbPlayerCont) {
-        ytbPlayerCont.classList.remove('hidden');
-        ytbPlayerCont.style.minHeight = '138px';
-        ytbPlayerCont.style.pointerEvents = 'auto';
-    }
     frame.classList.remove('hidden');
-    frame.src = 'https://www.youtube.com/embed/' + encodeURIComponent(songId)
-        + '?autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1';
+
+    const origin = window.location.origin || undefined;
+    if (ytApiReady && window.YT && window.YT.Player) {
+        if (!ytPlayer) {
+            ytPlayer = new window.YT.Player('ytFallbackEmbed', {
+                width: '100%',
+                height: '100%',
+                videoId: songId,
+                playerVars: {
+                    autoplay: 1,
+                    rel: 0,
+                    modestbranding: 1,
+                    playsinline: 1,
+                    controls: 1,
+                    origin: origin,
+                },
+                events: {
+                    onReady: function () {
+                        onYoutubePlayerReady(songId);
+                    },
+                    onStateChange: onYoutubePlayerStateChange,
+                    onError: onYoutubePlayerError,
+                },
+            });
+        } else if (typeof ytPlayer.loadVideoById === 'function') {
+            ytPlayer.loadVideoById(songId);
+            if (typeof ytPlayer.playVideo === 'function') {
+                ytPlayer.playVideo();
+            }
+            startYoutubeProgressMonitor();
+        }
+    }
+
     updatePlayPauseUi(true);
 }
 
 function startSongPlayback(songId) {
     if (backendStreamingUnavailable) {
+        hidePlaybackNotice();
         startYoutubeEmbedPlayback(songId);
-        if (DEPLOYMENT_YT_MODE) {
-            showPlaybackNotice('Deployment mode: playing via YouTube.', true);
-        }
         return;
     }
 
@@ -560,9 +699,17 @@ function formatTime(timeInSeconds) {
 
 function updateProgressUI() {
     if (backendStreamingUnavailable) {
-        progressBar.value = 0;
-        document.getElementById('currentDur').innerHTML = '00:00';
-        document.getElementById('duration').innerHTML = '--:--';
+        const ytDuration = getYoutubeDuration();
+        const ytCurrent = getYoutubeCurrentTime();
+        if (ytDuration > 0) {
+            dur = ytDuration;
+            progressBar.value = (ytCurrent / ytDuration) * 100;
+            document.getElementById('duration').innerHTML = formatTime(ytDuration);
+        } else {
+            progressBar.value = 0;
+            document.getElementById('duration').innerHTML = '--:--';
+        }
+        document.getElementById('currentDur').innerHTML = formatTime(ytCurrent);
         return;
     }
 
@@ -592,9 +739,13 @@ function hidePlaybackNotice() {
 }
 
 function setLikeUi(liked) {
-    heartStroke.classList.toggle('hidden', liked);
-    heartFilled.classList.toggle('hidden', !liked);
+    if (!likeIcon || !likeIconPath) {
+        return;
+    }
+
     likeIcon.classList.toggle('liked', liked);
+    likeIcon.setAttribute('aria-pressed', liked ? 'true' : 'false');
+    likeIcon.title = liked ? 'Remove from liked songs' : 'Add to liked songs';
 }
 
 function syncLikeUiForSong(songId) {
@@ -772,7 +923,13 @@ window.playSongNew = playSongNew;
 
 function play() {
     if (backendStreamingUnavailable) {
-        startYoutubeEmbedPlayback(currentSongId);
+        if (ytPlayer && typeof ytPlayer.playVideo === 'function') {
+            ytPlayer.playVideo();
+            updatePlayPauseUi(true);
+            startYoutubeProgressMonitor();
+        } else {
+            startYoutubeEmbedPlayback(currentSongId);
+        }
         return;
     }
 
@@ -792,7 +949,12 @@ function play() {
 
 function pause() {
     if (backendStreamingUnavailable) {
-        stopYoutubeEmbedPlayback();
+        if (ytPlayer && typeof ytPlayer.pauseVideo === 'function') {
+            ytPlayer.pauseVideo();
+        } else {
+            stopYoutubeEmbedPlayback();
+        }
+        stopYoutubeProgressMonitor();
         updatePlayPauseUi(false);
         return;
     }
@@ -803,7 +965,14 @@ function pause() {
 
 function goToStart() {
     if (backendStreamingUnavailable) {
-        startYoutubeEmbedPlayback(currentSongId);
+        if (ytPlayer && typeof ytPlayer.seekTo === 'function') {
+            ytPlayer.seekTo(0, true);
+            if (typeof ytPlayer.playVideo === 'function') {
+                ytPlayer.playVideo();
+            }
+        } else {
+            startYoutubeEmbedPlayback(currentSongId);
+        }
         return;
     }
 
@@ -833,6 +1002,9 @@ window.nextSong = nextSong;
 function setVolume() {
     const v = Math.floor(Number(volumeBar.value) / 5);
     audio.volume = v / 100;
+    if (backendStreamingUnavailable && ytPlayer && typeof ytPlayer.setVolume === 'function') {
+        ytPlayer.setVolume(v);
+    }
     if (v === 0) {
         volIcon.src = ICON_VOL_0;
     } else if (v < 33) {
@@ -989,11 +1161,9 @@ function runCommand(commandText) {
 }
 
 function getSeekTargetTime() {
-    if (backendStreamingUnavailable) {
-        return null;
-    }
-
-    const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : dur;
+    const duration = backendStreamingUnavailable
+        ? getYoutubeDuration()
+        : (Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : dur);
     if (!Number.isFinite(duration) || duration <= 0) {
         return null;
     }
@@ -1015,7 +1185,13 @@ function commitSeek() {
         return;
     }
 
-    audio.currentTime = target;
+    if (backendStreamingUnavailable) {
+        if (ytPlayer && typeof ytPlayer.seekTo === 'function') {
+            ytPlayer.seekTo(target, true);
+        }
+    } else {
+        audio.currentTime = target;
+    }
     document.getElementById('currentDur').innerHTML = formatTime(target);
 }
 

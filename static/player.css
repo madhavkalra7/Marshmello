@@ -55,6 +55,17 @@ img {
     display: none !important;
 }
 
+.yt-fallback-host {
+    position: fixed;
+    width: 1px;
+    height: 1px;
+    left: -9999px;
+    top: -9999px;
+    opacity: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
 input:required,
 input:invalid {
     box-shadow: none;
@@ -866,31 +877,42 @@ input:invalid {
 
 .like-icon {
     margin-left: auto;
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    background: rgba(255, 255, 255, 0.06);
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
     display: inline-flex;
     align-items: center;
     justify-content: center;
     position: relative;
     cursor: pointer;
+    padding: 0;
+    outline: none;
 }
 
 .like-icon:hover {
-    border-color: rgba(255, 110, 122, 0.7);
-    background: rgba(255, 110, 122, 0.16);
+    border-color: rgba(255, 110, 122, 0.82);
+    background: rgba(255, 110, 122, 0.2);
+    transform: translateY(-1px) scale(1.02);
 }
 
-.like-icon > img {
-    width: 18px;
-    height: 18px;
-    margin: 0;
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
+.like-icon:focus-visible {
+    box-shadow: 0 0 0 3px rgba(255, 130, 150, 0.34);
+}
+
+.like-icon svg {
+    width: 22px;
+    height: 22px;
+    display: block;
+    pointer-events: none;
+}
+
+.like-icon path {
+    fill: transparent;
+    stroke: #ffd9df;
+    stroke-width: 1.8;
+    transition: fill 0.22s ease, stroke 0.22s ease, transform 0.22s ease;
 }
 
 .playback-notice {
@@ -993,6 +1015,12 @@ input:invalid {
     border-color: rgba(255, 95, 95, 0.85);
     background: rgba(156, 0, 0, 0.45);
     box-shadow: 0 0 18px rgba(156, 0, 0, 0.5);
+}
+
+.like-icon.liked path {
+    fill: #ff5f7a;
+    stroke: #ffa8b5;
+    transform: scale(1.05);
 }
 
 .ai-assistant-fab {
@@ -1369,15 +1397,27 @@ input:invalid {
 
     .main {
         min-height: calc(100vh - 72px);
-        padding-bottom: calc(220px + env(safe-area-inset-bottom));
+        padding-bottom: calc(186px + env(safe-area-inset-bottom));
+    }
+
+    .equalizer {
+        display: none;
+    }
+
+    .play-options {
+        gap: 8px;
+    }
+
+    #volume {
+        width: min(190px, 40vw);
     }
 
     .playback-notice {
-        bottom: calc(190px + env(safe-area-inset-bottom));
+        bottom: calc(158px + env(safe-area-inset-bottom));
     }
 
     .yt-fallback-link {
-        bottom: calc(160px + env(safe-area-inset-bottom));
+        bottom: calc(132px + env(safe-area-inset-bottom));
     }
 
     .ai-assistant-fab {
@@ -1423,7 +1463,7 @@ input:invalid {
 
     .main {
         min-height: calc(100vh - 72px);
-        padding-bottom: calc(220px + env(safe-area-inset-bottom));
+        padding-bottom: calc(176px + env(safe-area-inset-bottom));
     }
 
     .cardContainer {
@@ -1442,11 +1482,11 @@ input:invalid {
         right: 0;
         bottom: 0;
         z-index: 40;
-        padding: 12px 14px 14px;
-        padding-bottom: calc(14px + env(safe-area-inset-bottom));
+        padding: 10px 12px 12px;
+        padding-bottom: calc(12px + env(safe-area-inset-bottom));
         display: grid;
         grid-template-columns: 1fr;
-        gap: 10px;
+        gap: 8px;
     }
 
     .current-playing,
@@ -1458,39 +1498,67 @@ input:invalid {
 
     .current-playing {
         justify-content: space-between;
+        gap: 8px;
     }
 
     .cur-info {
         flex: 1;
     }
 
+    .cur-title {
+        font-size: 12px;
+    }
+
+    .cur-author {
+        font-size: 11px;
+    }
+
     .playback {
-        gap: 8px;
+        gap: 6px;
     }
 
     .playOptions {
         max-width: none;
+        gap: 14px;
+    }
+
+    .slider {
+        gap: 6px;
     }
 
     .play-options {
         justify-content: flex-start;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 8px;
     }
 
     .equalizer {
-        width: 100%;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        display: none;
     }
 
     #volume {
-        width: min(180px, 48vw);
+        width: 100%;
+        min-width: 0;
+    }
+
+    .like-icon {
+        margin-left: 0;
+    }
+
+    .visualizer-wrap {
+        display: none;
     }
 
     .playback-notice {
-        bottom: calc(190px + env(safe-area-inset-bottom));
+        bottom: calc(136px + env(safe-area-inset-bottom));
+        max-width: calc(100vw - 24px);
+        text-align: center;
     }
 
     .yt-fallback-link {
-        bottom: calc(160px + env(safe-area-inset-bottom));
+        bottom: calc(112px + env(safe-area-inset-bottom));
     }
 
     .ai-assistant-fab {
@@ -1554,6 +1622,19 @@ input:invalid {
         min-width: 162px;
         width: 162px;
         padding: 12px;
+    }
+
+    .playbar {
+        padding: 9px 10px 11px;
+        padding-bottom: calc(11px + env(safe-area-inset-bottom));
+    }
+
+    .playOptions {
+        gap: 12px;
+    }
+
+    #volume {
+        width: 100%;
     }
 
     .albumplay {
