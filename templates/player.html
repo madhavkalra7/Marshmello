@@ -1,146 +1,100 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" itemprop="description"
-        content="Play your playlists and favourites tracks, albums, and artists of YouTube with a Spotify styled UI" />
-    <meta name="keywords"
-        content="convert, convert playlists, transfer, syncing, smart links, free, apple music, streaming services, spotify, youtube" />
-	<link rel="stylesheet" href="{% static 'player.css' %}?{% now " U " %}"> {% block css %} {% endblock %}
-	<title>Marshmello</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" itemprop="description" content="Play your playlists and favourites tracks, albums, and artists of YouTube with a Spotify styled UI" />
+    <meta name="keywords" content="music, playlists, streaming, spotify style, youtube" />
+    <link rel="stylesheet" href="{% static 'player.css' %}?{% now " U " %}"> {% block css %}{% endblock %}
+    <title>Marshmello</title>
     <link rel="icon" type="image/x-icon" href="/static/marshmello_favicon.png">
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js">
-	</script>
-	<script>
-		function playSongNew(id, playlistId, liked=false) {
-			if (!id) {
-				return;
-			}
-
-			// Simple version without queue for now
-			var audio = document.getElementById("audio");
-            fetch('/get_audio_url/' + id + '/')
-				.then(response => response.json())
-				.then(data => {
-					if (data.url) {
-						audio.src = data.url;
-						audio.play();
-					}
-				})
-				.catch(error => console.error('Error fetching audio URL:', error));
-		}
-	</script>
 </head>
-
 <body>
-
-{% comment %} <a href="https://github.com/madhavkalra7" target="_blank" class="github-corner" aria-label="View source on GitHub"><svg width="80" height="80" viewBox="0 0 250 250" style="fill:#fff; color:#151513; position: absolute; top: 0; border: 0; left: 0; transform: scale(-1, 1); z-index:100;" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a><style>.github-corner:hover .octo-arm{animation:octocat-wave 560ms ease-in-out}@keyframes octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80%{transform:rotate(10deg)}}@media (max-width:500px){.github-corner:hover .octo-arm{animation:none}.github-corner .octo-arm{animation:octocat-wave 560ms ease-in-out}}</style> {% endcomment %}
-
 <div class="grid-container">
-	<div class="sidebar">
-
-		<img class="logo"
-            src="https://i.pinimg.com/564x/2a/fa/09/2afa09ceedc90349c0041f12fa38b15a.jpg"></img>
+    <div class="sidebar">
+        <img class="logo" src="https://i.pinimg.com/564x/2a/fa/09/2afa09ceedc90349c0041f12fa38b15a.jpg" alt="Marshmello logo">
 
         <div class="options-section">
-            <div class="options home {% block home %}
-   active {% endblock %}">
+            <div class="options home {% block home %}active{% endblock %}">
                 <svg viewBox="0 0 512 512" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
-                    <path class='ops'
-                        d="M448 463.746h-149.333v-149.333h-85.334v149.333h-149.333v-315.428l192-111.746 192 110.984v316.19z"
-                        fill="grey"></path>
+                    <path class="ops" d="M448 463.746h-149.333v-149.333h-85.334v149.333h-149.333v-315.428l192-111.746 192 110.984v316.19z" fill="grey"></path>
                 </svg>
-                <a class='label' href="/">Home</a>
+                <a class="label" href="/">Home</a>
             </div>
+
             <div class="options search {% block search %}{% endblock %}" onclick="document.getElementById('searchBar').focus();">
                 <svg viewBox="0 0 512 512" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
-                    <path class='ops'
-                        d="M349.714 347.937l93.714 109.969-16.254 13.969-93.969-109.969q-48.508 36.825-109.207 36.825-36.826 0-70.476-14.349t-57.905-38.603-38.603-57.905-14.349-70.476 14.349-70.476 38.603-57.905 57.905-38.603 70.476-14.349 70.476 14.349 57.905 38.603 38.603 57.905 14.349 70.476q0 37.841-14.73 71.619t-40.889 58.921zM224 377.397q43.428 0 80.254-21.461t58.286-58.286 21.461-80.254-21.461-80.254-58.286-58.285-80.254-21.46-80.254 21.46-58.285 58.285-21.46 80.254 21.46 80.254 58.285 58.286 80.254 21.461z"
-                        fill="grey" fill-rule="evenodd"></path>
+                    <path class="ops" d="M349.714 347.937l93.714 109.969-16.254 13.969-93.969-109.969q-48.508 36.825-109.207 36.825-36.826 0-70.476-14.349t-57.905-38.603-38.603-57.905-14.349-70.476 14.349-70.476 38.603-57.905 57.905-38.603 70.476-14.349 70.476 14.349 57.905 38.603 38.603 57.905 14.349 70.476q0 37.841-14.73 71.619t-40.889 58.921zM224 377.397q43.428 0 80.254-21.461t58.286-58.286 21.461-80.254-21.461-80.254-58.286-58.285-80.254-21.46-80.254 21.46-58.285 58.285-21.46 80.254 21.46 80.254 58.285 58.286 80.254 21.461z" fill="grey" fill-rule="evenodd"></path>
                 </svg>
-                <span class='label'>Search</span>
+                <span class="label">Search</span>
             </div>
 
             <a id="libraryLink" class="options library" href="{% url 'your_playlists' %}">
                 <svg viewBox="0 0 512 512" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
-                    <path class='ops'
-                        d="M291.301 81.778l166.349 373.587-19.301 8.635-166.349-373.587zM64 463.746v-384h21.334v384h-21.334zM192 463.746v-384h21.334v384h-21.334z"
-                        fill="grey"></path>
+                    <path class="ops" d="M291.301 81.778l166.349 373.587-19.301 8.635-166.349-373.587zM64 463.746v-384h21.334v384h-21.334zM192 463.746v-384h21.334v384h-21.334z" fill="grey"></path>
                 </svg>
-                <span class='label'>Your Library</span>
+                <span class="label">Your Library</span>
             </a>
 
-            <!-- brk change -->
-            <div class="options2 ">
-                <span class='label'>Playlists</span>
+            <a class="options" href="{% url 'analytics_dashboard' %}">
+                <svg viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
+                    <path class="ops" d="M4 19h16v2H2V3h2v16zM8 17H6V9h2v8zm5 0h-2V5h2v12zm5 0h-2v-6h2v6z" fill="grey"></path>
+                </svg>
+                <span class="label">Analytics</span>
+            </a>
+
+            <div class="options2">
+                <span class="label">Playlists</span>
             </div>
-            <div class="options create {% block liked-song %}
-   {% endblock %}">
-                <img height="40px" class="likedImg" src="https://t.scdn.co/images/3099b3803ad9496896c43f22fe9be8c4.png"
-                    alt=""></img>
-                <a href="{% url 'your_playlists' %}" class='label'>Liked Songs</a>
+            <div class="options create {% block liked-song %}{% endblock %}">
+                <img height="40" class="likedImg" src="https://t.scdn.co/images/3099b3803ad9496896c43f22fe9be8c4.png" alt="Liked songs">
+                <a href="{% url 'your_playlists' %}" class="label">Liked Songs</a>
             </div>
         </div>
 
         <div class="ytbPlayerCont" id="ytbPlayerCont" onclick="iframeToggle()">
-          {% block iframe %}
-            <audio id="audio" controls style="display:none;"></audio>
-          {% endblock %}
+            {% block iframe %}
+                <audio id="audio" controls style="display:none;" crossorigin="anonymous"></audio>
+            {% endblock %}
         </div>
     </div>
-
-
 
     <div class="navbar">
         <div class="nav-btn-container">
-            <a href='/' class='nav-btn'>
+            <a href="/" class="nav-btn" aria-label="Home">
                 <svg viewBox="0 0 512 512" width="1em" height="1em" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                    <path class='ops'
-                        d="M448 463.746h-149.333v-149.333h-85.334v149.333h-149.333v-315.428l192-111.746 192 110.984v316.19z"
-                        ></path>
+                    <path class="ops" d="M448 463.746h-149.333v-149.333h-85.334v149.333h-149.333v-315.428l192-111.746 192 110.984v316.19z"></path>
                 </svg>
             </a>
-            <a class='nav-btn' href="{% url 'your_playlists' %}">
-              <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-suit-heart" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-  <path d="M4 1c2.21 0 4 1.755 4 3.92C8 2.755 9.79 1 12 1s4 1.755 4 3.92c0 3.263-3.234 4.414-7.608 9.608a.513.513 0 0 1-.784 0C3.234 9.334 0 8.183 0 4.92 0 2.755 1.79 1 4 1z"/>
-</svg>
+            <a class="nav-btn" href="{% url 'your_playlists' %}" aria-label="Liked songs">
+                <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-suit-heart" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 1c2.21 0 4 1.755 4 3.92C8 2.755 9.79 1 12 1s4 1.755 4 3.92c0 3.263-3.234 4.414-7.608 9.608a.513.513 0 0 1-.784 0C3.234 9.334 0 8.183 0 4.92 0 2.755 1.79 1 4 1z"/>
+                </svg>
             </a>
             <form action="/search" method="get" name="search-form">
                 <div class="searchCont">
-            <svg onClick="document.forms['search-form'].submit();" class='searchBarIcon' viewBox="0 0 512 512" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
-                    <path class='ops'
-                        d="M349.714 347.937l93.714 109.969-16.254 13.969-93.969-109.969q-48.508 36.825-109.207 36.825-36.826 0-70.476-14.349t-57.905-38.603-38.603-57.905-14.349-70.476 14.349-70.476 38.603-57.905 57.905-38.603 70.476-14.349 70.476 14.349 57.905 38.603 38.603 57.905 14.349 70.476q0 37.841-14.73 71.619t-40.889 58.921zM224 377.397q43.428 0 80.254-21.461t58.286-58.286 21.461-80.254-21.461-80.254-58.286-58.285-80.254-21.46-80.254 21.46-58.285 58.285-21.46 80.254 21.46 80.254 58.285 58.286 80.254 21.461z"
-                        fill="black" fill-rule="evenodd"></path>
-              </svg>
-            <input class="searchBar" placeholder="Search for song" type="text" name="search" id="searchBar" required>
-            </div>
-
+                    <svg onclick="document.forms['search-form'].submit();" class="searchBarIcon" viewBox="0 0 512 512" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
+                        <path class="ops" d="M349.714 347.937l93.714 109.969-16.254 13.969-93.969-109.969q-48.508 36.825-109.207 36.825-36.826 0-70.476-14.349t-57.905-38.603-38.603-57.905-14.349-70.476 14.349-70.476 38.603-57.905 57.905-38.603 70.476-14.349 70.476 14.349 57.905 38.603 38.603 57.905 14.349 70.476q0 37.841-14.73 71.619t-40.889 58.921zM224 377.397q43.428 0 80.254-21.461t58.286-58.286 21.461-80.254-21.461-80.254-58.286-58.285-80.254-21.46-80.254 21.46-58.285 58.285-21.46 80.254 21.46 80.254 58.285 58.286 80.254 21.461z" fill="black" fill-rule="evenodd"></path>
+                    </svg>
+                    <input class="searchBar" placeholder="Search for song" type="text" name="search" id="searchBar" required>
+                </div>
             </form>
+            <input id="commandBar" class="commandBar" type="text" placeholder="Command: play this, skip, repeat, play similar">
         </div>
 
-
         <a class="profile-container" href="/logout">
-            <button class="profile">
+            <button class="profile" type="button">
                 <div class="profile-pic">
-                    <svg width="16" height="16" fill="white" viewBox="0 0 18 20" xmlns="http://www.w3.org/2000/svg"
-                        data-testid="user-icon">
-                        <path
-                            d="M15.216 13.717L12 11.869C11.823 11.768 11.772 11.607 11.757 11.521C11.742 11.435 11.737 11.267 11.869 11.111L13.18 9.57401C14.031 8.58001 14.5 7.31101 14.5 6.00001V5.50001C14.5 3.98501 13.866 2.52301 12.761 1.48601C11.64 0.435011 10.173 -0.0879888 8.636 0.0110112C5.756 0.198011 3.501 2.68401 3.501 5.67101V6.00001C3.501 7.31101 3.97 8.58001 4.82 9.57401L6.131 11.111C6.264 11.266 6.258 11.434 6.243 11.521C6.228 11.607 6.177 11.768 5.999 11.869L2.786 13.716C1.067 14.692 0 16.526 0 18.501V20H1V18.501C1 16.885 1.874 15.385 3.283 14.584L6.498 12.736C6.886 12.513 7.152 12.132 7.228 11.691C7.304 11.251 7.182 10.802 6.891 10.462L5.579 8.92501C4.883 8.11101 4.499 7.07201 4.499 6.00001V5.67101C4.499 3.21001 6.344 1.16201 8.699 1.00901C9.961 0.928011 11.159 1.35601 12.076 2.21501C12.994 3.07601 13.5 4.24301 13.5 5.50001V6.00001C13.5 7.07201 13.117 8.11101 12.42 8.92501L11.109 10.462C10.819 10.803 10.696 11.251 10.772 11.691C10.849 12.132 11.115 12.513 11.503 12.736L14.721 14.585C16.127 15.384 17.001 16.884 17.001 18.501V20H18.001V18.501C18 16.526 16.932 14.692 15.216 13.717Z">
-                        </path>
+                    <svg width="16" height="16" fill="white" viewBox="0 0 18 20" xmlns="http://www.w3.org/2000/svg" data-testid="user-icon">
+                        <path d="M15.216 13.717L12 11.869C11.823 11.768 11.772 11.607 11.757 11.521C11.742 11.435 11.737 11.267 11.869 11.111L13.18 9.57401C14.031 8.58001 14.5 7.31101 14.5 6.00001V5.50001C14.5 3.98501 13.866 2.52301 12.761 1.48601C11.64 0.435011 10.173 -0.0879888 8.636 0.0110112C5.756 0.198011 3.501 2.68401 3.501 5.67101V6.00001C3.501 7.31101 3.97 8.58001 4.82 9.57401L6.131 11.111C6.264 11.266 6.258 11.434 6.243 11.521C6.228 11.607 6.177 11.768 5.999 11.869L2.786 13.716C1.067 14.692 0 16.526 0 18.501V20H1V18.501C1 16.885 1.874 15.385 3.283 14.584L6.498 12.736C6.886 12.513 7.152 12.132 7.228 11.691C7.304 11.251 7.182 10.802 6.891 10.462L5.579 8.92501C4.883 8.11101 4.499 7.07201 4.499 6.00001V5.67101C4.499 3.21001 6.344 1.16201 8.699 1.00901C9.961 0.928011 11.159 1.35601 12.076 2.21501C12.994 3.07601 13.5 4.24301 13.5 5.50001V6.00001C13.5 7.07201 13.117 8.11101 12.42 8.92501L11.109 10.462C10.819 10.803 10.696 11.251 10.772 11.691C10.849 12.132 11.115 12.513 11.503 12.736L14.721 14.585C16.127 15.384 17.001 16.884 17.001 18.501V20H18.001V18.501C18 16.526 16.932 14.692 15.216 13.717Z"></path>
                     </svg>
                 </div>
-                <span class='username hide-onhover'>{{ request.user }}</span>
-                <span class='logout username'>Logout</span>
+                <span class="username hide-onhover">{{ request.user }}</span>
+                <span class="logout username">Logout</span>
             </button>
-
-
         </a>
     </div>
-
-
 
     <div class="main">
         {% block main %}
@@ -148,130 +102,131 @@
             <div class="home-hero">
                 <div class="home-hero-content">
                     <p class="hero-kicker">Welcome Back</p>
-                    <h1 class="hero-title">Your Marshmello Mix - BY Madhav Kalra</h1>
-                    <p class="hero-subtitle">Curated picks from your favorite channels. Tap play and skip what cannot be embedded.</p>
+                    <h1 class="hero-title">Your Marshmello Mix</h1>
+                    <p class="hero-subtitle">Curated picks from your favorite channels with AI powered recommendations.</p>
                 </div>
                 <a class="hero-cta" href="/search">Find New Songs</a>
             </div>
+
             {% for playlist in CONTAINER %}
             <div class="category">
                 <div class="catTitle">
-                    <span class='label catName underline-on-hover'>{{ playlist.0 }} Songs <span class="catCount">({{ playlist.1|length }})</span></span>
-                    <button type="button" class='label seeall seeall-toggle underline-on-hover' data-target="category-{{ playlist.2 }}">SEE ALL >></button>
+                    <span class="label catName underline-on-hover">{{ playlist.0 }} Songs <span class="catCount">({{ playlist.1|length }})</span></span>
+                    <button type="button" class="label seeall seeall-toggle underline-on-hover" data-target="category-{{ playlist.2 }}">SEE ALL >></button>
                 </div>
-                            <div class="cardContainer" id="category-{{ playlist.2 }}">
+                <div class="cardContainer" id="category-{{ playlist.2 }}">
                     {% for card in playlist.1 %}
                     <div class="card c1">
                         <div class="albumcover">
-                            <a href="https://youtu.be/{{ card.3 }}?si=euoApd_J6XWCMRVl" target="_blank"><img class="albumimg" src="https://img.youtube.com/vi/{{ card.3 }}/mqdefault.jpg" alt="" srcset="" onerror="handleThumbError(this)"></a>
-                                <div class="albumplay" data-song-id="{{ card.3 }}" data-song-title="{{ card.1|escape }}" data-song-channel="{{ card.2|escape }}" onclick='playSongNew("{{ card.3 }}","none",true,this)'><img
-                                    src="{% static 'play.png' %}"
-                                    alt="">
+                            <a href="https://youtu.be/{{ card.3 }}" target="_blank" rel="noopener noreferrer">
+                                <img class="albumimg" src="https://img.youtube.com/vi/{{ card.3 }}/mqdefault.jpg" alt="Song thumbnail" onerror="handleThumbError(this)">
+                            </a>
+                            <div class="albumplay" data-song-id="{{ card.3 }}" data-song-title="{{ card.1|escape }}" data-song-channel="{{ card.2|escape }}" onclick="playSongNew('{{ card.3 }}','none',true,this)">
+                                <img src="{% static 'play.png' %}" alt="Play">
                             </div>
                         </div>
-                        <span class='label albumtitle bond-to-two-lines'>{{ card.1 }}</span>
-                        <span class='label albumauthor bond-to-two-lines'>By {{ card.2 }}</span>
+                        <span class="label albumtitle bond-to-two-lines">{{ card.1 }}</span>
+                        <span class="label albumauthor bond-to-two-lines">By {{ card.2 }}</span>
                     </div>
                     {% endfor %}
                 </div>
-
             </div>
             {% endfor %}
-
         </div>
         {% endblock %}
     </div>
 
-
-
-
-
-
     <div class="playbar">
         <div class="current-playing">
-
             <div class="cur-info">
-                <div class='label cur-title underline-on-hover bond-to-two-lines' id="songName" onclick="iframeToggle()">Heer Ranjha - Bhuvan Bam | Official Music Video |</div>
-                <div class='label' id='channel_container'>
-                    <div class='label cur-author underline-on-hover bond-to-two-lines' id='channel'></div>
+                <div class="label cur-title underline-on-hover bond-to-two-lines" id="songName" onclick="iframeToggle()">Heer Ranjha - Bhuvan Bam</div>
+                <div class="label" id="channel_container">
+                    <div class="label cur-author underline-on-hover bond-to-two-lines" id="channel">BB Ki Vines</div>
                 </div>
+            </div>
 
-            </div>
-            <form id='like-form'>
-              {% csrf_token %}
-            <div type='submit' class="like-icon mainicons" id="like-icon">
-                <img class="heart" id="stroke" style="width: 55px;"
-                    src="/static/heart.png"
-                    alt="">
-                <img class="heart hidden" id="filled" style="width: 55px;"
-                    src="/static/hidden_heart.png"
-                    alt="">
-            </div>
+            <form id="like-form">
+                {% csrf_token %}
+                <div class="like-icon mainicons" id="like-icon" title="Toggle like">
+                    <img class="heart" id="stroke" style="width:55px;" src="/static/heart.png" alt="Like">
+                    <img class="heart hidden" id="filled" style="width:55px;" src="/static/hidden_heart.png" alt="Liked">
+                </div>
             </form>
-            {% comment %} <div title="Like" class="heart-container">
-            <input id="Give-It-An-Id" class="checkbox" type="checkbox">
-            <div class="svg-container">
-                <svg xmlns="http://www.w3.org/2000/svg" class="svg-outline" viewBox="0 0 24 24">
-                    <path d="M17.5,1.917a6.4,6.4,0,0,0-5.5,3.3,6.4,6.4,0,0,0-5.5-3.3A6.8,6.8,0,0,0,0,8.967c0,4.547,4.786,9.513,8.8,12.88a4.974,4.974,0,0,0,6.4,0C19.214,18.48,24,13.514,24,8.967A6.8,6.8,0,0,0,17.5,1.917Zm-3.585,18.4a2.973,2.973,0,0,1-3.83,0C4.947,16.006,2,11.87,2,8.967a4.8,4.8,0,0,1,4.5-5.05A4.8,4.8,0,0,1,11,8.967a1,1,0,0,0,2,0,4.8,4.8,0,0,1,4.5-5.05A4.8,4.8,0,0,1,22,8.967C22,11.87,19.053,16.006,13.915,20.313Z">
-                    </path>
-                </svg>
-                <svg xmlns="http://www.w3.org/2000/svg" class="svg-filled" viewBox="0 0 24 24">
-                    <path d="M17.5,1.917a6.4,6.4,0,0,0-5.5,3.3,6.4,6.4,0,0,0-5.5-3.3A6.8,6.8,0,0,0,0,8.967c0,4.547,4.786,9.513,8.8,12.88a4.974,4.974,0,0,0,6.4,0C19.214,18.48,24,13.514,24,8.967A6.8,6.8,0,0,0,17.5,1.917Z">
-                    </path>
-                </svg>
-                <svg xmlns="http://www.w3.org/2000/svg" height="100" width="100" class="svg-celebrate">
-                    <polygon points="10,10 20,20"></polygon>
-                    <polygon points="10,50 20,50"></polygon>
-                    <polygon points="20,80 30,70"></polygon>
-                    <polygon points="90,10 80,20"></polygon>
-                    <polygon points="90,50 80,50"></polygon>
-                    <polygon points="80,80 70,70"></polygon>
-                </svg>
-            </div>
-        </div> {% endcomment %}
         </div>
-
 
         <div class="playback">
-    <div class="playOptions">
-        <div onclick="goToStart()" class="mainicons">
-            <img class="mainicons"
-                    src="{% static 'skip-back.svg' %}"
-                alt=""></img></div>
+            <div class="playOptions">
+                <div onclick="goToStart()" class="mainicons">
+                    <img class="mainicons" src="{% static 'skip-back.svg' %}" alt="Restart">
+                </div>
 
-        <button id="playPauseButton" class="mainicons playicon" aria-label="Play or pause">
-            <img id="playPauseIcon" class="mainicons playicon"
-                src="{% static 'play.png' %}"
-                alt=""></img>
-        </button>
+                <button id="playPauseButton" class="mainicons playicon" aria-label="Play or pause">
+                    <img id="playPauseIcon" class="mainicons playicon" src="{% static 'play.png' %}" alt="Play pause">
+                </button>
 
-        <div class="mainicons" onclick="nextSong()">
-            <img class="mainicons"
-                src="{% static 'skip-forward.svg' %}"
-                alt=""></img></div>
-    </div>
+                <div class="mainicons" onclick="nextSong()">
+                    <img class="mainicons" src="{% static 'skip-forward.svg' %}" alt="Next song">
+                </div>
+            </div>
 
-    <div class="slider">
-        <span id="currentDur"></span>
-        <div class="range-slider">
-            <input id="progressBar" class="range-slider__range" type="range" value="0" min="0" max="100">
+            <div class="slider">
+                <span id="currentDur"></span>
+                <div class="range-slider">
+                    <input id="progressBar" class="range-slider__range" type="range" value="0" min="0" max="100">
+                </div>
+                <span id="duration"></span>
+            </div>
+
+            <div class="visualizer-wrap">
+                <canvas id="musicVisualizer" width="500" height="54"></canvas>
+            </div>
         </div>
-        <span id="duration"></span>
-    </div>
-</div>
 
         <div id="playbackNotice" class="playback-notice hidden"></div>
         <a id="ytFallbackLink" class="yt-fallback-link hidden" href="#" target="_blank" rel="noopener noreferrer">Watch on YouTube</a>
 
-
         <div class="play-options">
-            <img id='vol-icon' class='mainicons' src="{% static 'vol-3.svg' %}" alt="Volume icon">
-            <div id='volume' class="range-slider">
-                <input id='volumeBar' oninput="setVolume()" class="range-slider__range" type="range" value="500" min="0"
-                    max="500">
+            <img id="vol-icon" class="mainicons" src="{% static 'vol-3.svg' %}" alt="Volume icon">
+            <div id="volume" class="range-slider">
+                <input id="volumeBar" oninput="setVolume()" class="range-slider__range" type="range" value="500" min="0" max="500">
+            </div>
+
+            <div class="equalizer" id="equalizer">
+                <div class="eq-band">
+                    <label for="eqBass">Bass</label>
+                    <input id="eqBass" class="range-slider__range" type="range" min="-20" max="20" value="0">
+                </div>
+                <div class="eq-band">
+                    <label for="eqMid">Mid</label>
+                    <input id="eqMid" class="range-slider__range" type="range" min="-20" max="20" value="0">
+                </div>
+                <div class="eq-band">
+                    <label for="eqTreble">Treble</label>
+                    <input id="eqTreble" class="range-slider__range" type="range" min="-20" max="20" value="0">
+                </div>
             </div>
         </div>
+    </div>
+</div>
 
+<button id="aiAssistantFab" class="ai-assistant-fab" type="button">AI</button>
+<div id="aiAssistantPanel" class="ai-assistant-panel hidden">
+    <div class="ai-assistant-head">
+        <strong>Marshmello AI</strong>
+        <button type="button" id="aiAssistantClose">x</button>
+    </div>
+    <div class="ai-assistant-tabs">
+        <button type="button" class="ai-tab active" data-mode="chat">Chat Rec</button>
+        <button type="button" class="ai-tab" data-mode="playlist">AI DJ</button>
+        <button type="button" class="ai-tab" data-mode="search">Hybrid Search</button>
+    </div>
+    <div class="ai-assistant-body">
+        <textarea id="aiPromptInput" placeholder="Try: sad Punjabi songs, lofi for night coding"></textarea>
+        <div class="ai-actions">
+            <button id="aiRunBtn" type="button">Run AI</button>
+            <button id="aiSavePlaylistBtn" type="button" class="hidden">Run + Save</button>
+        </div>
+        <div id="aiAssistantOutput" class="ai-assistant-output"></div>
     </div>
 </div>
 
@@ -283,6 +238,90 @@ const ICON_VOL_1 = "{% static 'vol-1.svg' %}";
 const ICON_VOL_2 = "{% static 'vol-2.svg' %}";
 const ICON_VOL_3 = "{% static 'vol-3.svg' %}";
 const ICON_FALLBACK_COVER = "{% static 'marshmello_favicon.png' %}";
+
+let likedSongIdsSeed = [];
+try {
+    likedSongIdsSeed = JSON.parse('{{ liked_song_ids_json|default:"[]"|escapejs }}');
+} catch (error) {
+    likedSongIdsSeed = [];
+}
+const likedSongIds = new Set(likedSongIdsSeed);
+
+let currentSongId = null;
+let songQueue = [];
+let currentQueueIndex = -1;
+let dur = 0;
+let currentAiMood = 'unknown';
+let currentAiGenre = 'unknown';
+let lastPlayTrackedSongId = null;
+let aiMode = 'chat';
+
+let audioContext = null;
+let sourceNode = null;
+let bassFilter = null;
+let midFilter = null;
+let trebleFilter = null;
+let analyserNode = null;
+let visualizerRaf = null;
+
+const audio = document.getElementById('audio');
+const playPauseButton = document.getElementById('playPauseButton');
+const playPauseIcon = document.getElementById('playPauseIcon');
+const progressBar = document.getElementById('progressBar');
+const volumeBar = document.getElementById('volumeBar');
+const volIcon = document.getElementById('vol-icon');
+const playbackNotice = document.getElementById('playbackNotice');
+const ytFallbackLink = document.getElementById('ytFallbackLink');
+const likeIcon = document.getElementById('like-icon');
+const heartStroke = document.getElementById('stroke');
+const heartFilled = document.getElementById('filled');
+
+const commandBar = document.getElementById('commandBar');
+const aiAssistantFab = document.getElementById('aiAssistantFab');
+const aiAssistantPanel = document.getElementById('aiAssistantPanel');
+const aiAssistantClose = document.getElementById('aiAssistantClose');
+const aiPromptInput = document.getElementById('aiPromptInput');
+const aiRunBtn = document.getElementById('aiRunBtn');
+const aiSavePlaylistBtn = document.getElementById('aiSavePlaylistBtn');
+const aiAssistantOutput = document.getElementById('aiAssistantOutput');
+const visualizerCanvas = document.getElementById('musicVisualizer');
+const visualizerCtx = visualizerCanvas ? visualizerCanvas.getContext('2d') : null;
+
+function htmlEscape(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function getCsrfToken() {
+    const tokenInput = document.querySelector('input[name=csrfmiddlewaretoken]');
+    if (tokenInput && tokenInput.value) {
+        return tokenInput.value;
+    }
+    const cookie = document.cookie
+        .split(';')
+        .map(item => item.trim())
+        .find(item => item.startsWith('csrftoken='));
+    return cookie ? decodeURIComponent(cookie.split('=')[1]) : '';
+}
+
+function requestJson(url, payload) {
+    return fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+        },
+        body: JSON.stringify(payload || {})
+    }).then(function (response) {
+        return response.json().then(function (data) {
+            return { ok: response.ok, data: data };
+        });
+    });
+}
 
 function handleThumbError(img) {
     if (!img) {
@@ -300,88 +339,7 @@ function handleThumbError(img) {
     img.onerror = null;
     img.src = ICON_FALLBACK_COVER;
 }
-
-const playPauseButton = document.getElementById("playPauseButton");
-const playPauseIcon = document.getElementById("playPauseIcon");
-var progressBar = document.getElementById("progressBar");
-var volumeBar = document.getElementById("volumeBar");
-var playbackNotice = document.getElementById("playbackNotice");
-var ytFallbackLink = document.getElementById("ytFallbackLink");
-var vol_ico = document.getElementById('vol-icon');
-var audio = document.getElementById("audio");
-var currentSongId = null;
-var songQueue = [];
-var currentQueueIndex = -1;
-var blockedSongIds = new Set();
-var dur = 0;
-
-function bindCardDrag() {
-    const sliders = document.getElementsByClassName('cardContainer');
-    for (let ind = 0; ind < sliders.length; ind++) {
-        let slider = sliders[ind];
-        if (slider.dataset.dragBound === 'true') {
-            continue;
-        }
-
-        slider.dataset.dragBound = 'true';
-        let isDown = false;
-        let startX = 0;
-        let scrollLeft = 0;
-
-        slider.addEventListener('mousedown', (e) => {
-            isDown = true;
-            slider.classList.add('dragging');
-            startX = e.pageX - slider.offsetLeft;
-            scrollLeft = slider.scrollLeft;
-        });
-
-        slider.addEventListener('mouseleave', () => {
-            isDown = false;
-            slider.classList.remove('dragging');
-        });
-
-        slider.addEventListener('mouseup', () => {
-            isDown = false;
-            slider.classList.remove('dragging');
-        });
-
-        slider.addEventListener('mousemove', (e) => {
-            if (!isDown) {
-                return;
-            }
-            e.preventDefault();
-            const x = e.pageX - slider.offsetLeft;
-            const walk = x - startX;
-            slider.scrollLeft = scrollLeft - walk;
-        });
-    }
-}
-
-function bindSeeAllToggles() {
-    const seeAllButtons = document.getElementsByClassName('seeall-toggle');
-    for (let index = 0; index < seeAllButtons.length; index++) {
-        let button = seeAllButtons[index];
-        if (button.dataset.bound === 'true') {
-            continue;
-        }
-
-        button.dataset.bound = 'true';
-        button.addEventListener('click', function () {
-            const targetId = button.dataset.target;
-            if (!targetId) {
-                return;
-            }
-
-            const cards = document.getElementById(targetId);
-            if (!cards) {
-                return;
-            }
-
-            const isExpanded = cards.classList.toggle('expanded');
-            button.textContent = isExpanded ? 'SHOW LESS <<' : 'SEE ALL >>';
-        });
-    }
-}
+window.handleThumbError = handleThumbError;
 
 function updatePlayPauseUi(isPlaying) {
     playPauseIcon.src = isPlaying ? ICON_PAUSE : ICON_PLAY;
@@ -392,23 +350,168 @@ function formatTime(timeInSeconds) {
     if (!Number.isFinite(timeInSeconds) || timeInSeconds < 0) {
         return '00:00';
     }
-    let minutes = Math.floor(timeInSeconds / 60);
-    let seconds = Math.floor(timeInSeconds - minutes * 60);
-    return str_pad_left(minutes, '0', 2) + ':' + str_pad_left(seconds, '0', 2);
+    const minutes = Math.floor(timeInSeconds / 60);
+    const seconds = Math.floor(timeInSeconds - minutes * 60);
+    return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
 }
 
 function updateProgressUI() {
-    var duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : dur;
+    const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : dur;
     if (!Number.isFinite(duration) || duration <= 0) {
         progressBar.value = 0;
         return;
     }
     dur = duration;
     progressBar.value = (audio.currentTime / duration) * 100;
-    document.getElementById("currentDur").innerHTML = formatTime(audio.currentTime);
+    document.getElementById('currentDur').innerHTML = formatTime(audio.currentTime);
 }
 
-function setCurrentSongInfoFromElement(sourceEl) {
+function showPlaybackNotice(message, showLink) {
+    playbackNotice.textContent = message;
+    playbackNotice.classList.remove('hidden');
+    ytFallbackLink.classList.toggle('hidden', !showLink);
+}
+
+function hidePlaybackNotice() {
+    playbackNotice.classList.add('hidden');
+    ytFallbackLink.classList.add('hidden');
+}
+
+function setLikeUi(liked) {
+    heartStroke.classList.toggle('hidden', liked);
+    heartFilled.classList.toggle('hidden', !liked);
+    likeIcon.classList.toggle('liked', liked);
+}
+
+function syncLikeUiForSong(songId) {
+    if (!songId) {
+        setLikeUi(false);
+        return;
+    }
+    setLikeUi(likedSongIds.has(songId));
+}
+
+function trackAnalytics(eventType) {
+    if (!currentSongId) {
+        return;
+    }
+    requestJson('/analytics/track/', {
+        song_id: currentSongId,
+        title: document.getElementById('songName').textContent || '',
+        genre: currentAiGenre,
+        mood: currentAiMood,
+        listen_seconds: Math.max(0, Math.floor(audio.currentTime || 0)),
+        event_type: eventType
+    }).catch(function () {
+        return null;
+    });
+}
+
+function buildSongQueue() {
+    const ids = [];
+    document.querySelectorAll('[data-song-id]').forEach(function (el) {
+        const id = (el.dataset.songId || '').trim();
+        if (id && !ids.includes(id)) {
+            ids.push(id);
+        }
+    });
+    songQueue = ids;
+}
+
+function ensureAudioPipeline() {
+    if (audioContext) {
+        return;
+    }
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) {
+        return;
+    }
+
+    audioContext = new Ctx();
+    sourceNode = audioContext.createMediaElementSource(audio);
+
+    bassFilter = audioContext.createBiquadFilter();
+    bassFilter.type = 'lowshelf';
+    bassFilter.frequency.value = 220;
+
+    midFilter = audioContext.createBiquadFilter();
+    midFilter.type = 'peaking';
+    midFilter.frequency.value = 1000;
+    midFilter.Q.value = 1;
+
+    trebleFilter = audioContext.createBiquadFilter();
+    trebleFilter.type = 'highshelf';
+    trebleFilter.frequency.value = 3600;
+
+    analyserNode = audioContext.createAnalyser();
+    analyserNode.fftSize = 128;
+
+    sourceNode.connect(bassFilter);
+    bassFilter.connect(midFilter);
+    midFilter.connect(trebleFilter);
+    trebleFilter.connect(analyserNode);
+    analyserNode.connect(audioContext.destination);
+
+    bindEqualizerInputs();
+    startVisualizer();
+}
+
+function bindEqualizerInputs() {
+    const bassSlider = document.getElementById('eqBass');
+    const midSlider = document.getElementById('eqMid');
+    const trebleSlider = document.getElementById('eqTreble');
+
+    if (bassSlider) {
+        bassSlider.addEventListener('input', function () {
+            if (bassFilter) {
+                bassFilter.gain.value = Number(bassSlider.value);
+            }
+        });
+    }
+    if (midSlider) {
+        midSlider.addEventListener('input', function () {
+            if (midFilter) {
+                midFilter.gain.value = Number(midSlider.value);
+            }
+        });
+    }
+    if (trebleSlider) {
+        trebleSlider.addEventListener('input', function () {
+            if (trebleFilter) {
+                trebleFilter.gain.value = Number(trebleSlider.value);
+            }
+        });
+    }
+}
+
+function startVisualizer() {
+    if (!analyserNode || !visualizerCtx || !visualizerCanvas || visualizerRaf) {
+        return;
+    }
+
+    const bufferLength = analyserNode.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    function draw() {
+        visualizerRaf = requestAnimationFrame(draw);
+        analyserNode.getByteFrequencyData(dataArray);
+        visualizerCtx.clearRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
+
+        const barWidth = (visualizerCanvas.width / bufferLength) - 2;
+        let x = 0;
+        for (let i = 0; i < bufferLength; i++) {
+            const v = dataArray[i] / 255;
+            const h = Math.max(2, v * visualizerCanvas.height);
+            visualizerCtx.fillStyle = i % 2 === 0 ? 'rgba(156,0,0,0.9)' : 'rgba(63,146,255,0.8)';
+            visualizerCtx.fillRect(x, visualizerCanvas.height - h, barWidth, h);
+            x += barWidth + 2;
+        }
+    }
+
+    draw();
+}
+
+function setCurrentSongMetaFromElement(sourceEl) {
     if (!sourceEl) {
         return;
     }
@@ -422,69 +525,336 @@ function setCurrentSongInfoFromElement(sourceEl) {
     }
 }
 
-function updateNavigationStateForSearch() {
-    var homeOption = document.querySelector('.options.home');
-    var searchOption = document.querySelector('.options.search');
-    if (homeOption) {
-        homeOption.classList.remove('active');
-    }
-    if (searchOption) {
-        searchOption.classList.add('active');
-    }
-}
-
-function refreshMainFromHtml(htmlText) {
-    var parser = new DOMParser();
-    var doc = parser.parseFromString(htmlText, 'text/html');
-    var incomingMain = doc.querySelector('.main');
-    var currentMain = document.querySelector('.main');
-    if (!incomingMain || !currentMain) {
-        return false;
-    }
-    currentMain.innerHTML = incomingMain.innerHTML;
-    bindCardDrag();
-    bindSeeAllToggles();
-    buildSongQueue();
-    return true;
-}
-
-function searchWithoutReload(query, pushState=true) {
-    if (!query) {
+function playSongNew(id, playlistId, liked, sourceEl) {
+    if (!id) {
         return;
     }
 
-    var targetUrl = '/search/?search=' + encodeURIComponent(query);
-    fetch(targetUrl, {
-        method: 'GET',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    })
-        .then(function(response) {
-            return response.text();
-        })
-        .then(function(htmlText) {
-            var swapped = refreshMainFromHtml(htmlText);
-            if (!swapped) {
-                window.location.href = targetUrl;
+    buildSongQueue();
+    currentSongId = id;
+    ytFallbackLink.href = 'https://youtu.be/' + id;
+    setCurrentSongMetaFromElement(sourceEl);
+    syncLikeUiForSong(id);
+
+    hidePlaybackNotice();
+    progressBar.value = 0;
+    document.getElementById('currentDur').innerHTML = '00:00';
+    document.getElementById('duration').innerHTML = '00:00';
+    dur = 0;
+
+    const queueIndex = songQueue.indexOf(id);
+    if (queueIndex !== -1) {
+        currentQueueIndex = queueIndex;
+    }
+
+    if (id !== lastPlayTrackedSongId) {
+        trackAnalytics('play');
+        lastPlayTrackedSongId = id;
+    }
+
+    fetch('/get_audio_url/' + id + '/')
+        .then(function (response) { return response.json(); })
+        .then(function (data) {
+            if (!data.url) {
+                updatePlayPauseUi(false);
+                showPlaybackNotice('Failed to load audio.', true);
                 return;
             }
-            updateNavigationStateForSearch();
-            var searchBar = document.getElementById('searchBar');
-            if (searchBar) {
-                searchBar.value = query;
-            }
-            if (pushState) {
-                window.history.pushState({ search: query }, '', targetUrl);
-            }
+            audio.src = '/get_audio_stream/' + id;
+            play();
         })
-        .catch(function(error) {
-            console.error('Search failed, fallback to full load:', error);
-            window.location.href = targetUrl;
+        .catch(function () {
+            updatePlayPauseUi(false);
+            showPlaybackNotice('Error loading audio.', true);
+        });
+}
+window.playSongNew = playSongNew;
+
+function play() {
+    ensureAudioPipeline();
+    if (audioContext && audioContext.state === 'suspended') {
+        audioContext.resume();
+    }
+
+    audio.play()
+        .then(function () {
+            updatePlayPauseUi(true);
+        })
+        .catch(function () {
+            updatePlayPauseUi(false);
         });
 }
 
-playPauseButton.addEventListener("click", function () {
+function pause() {
+    audio.pause();
+    updatePlayPauseUi(false);
+}
+
+function goToStart() {
+    audio.currentTime = 0;
+    progressBar.value = 0;
+    play();
+}
+window.goToStart = goToStart;
+
+function nextSong() {
+    if (audio && audio.currentTime > 5) {
+        trackAnalytics('skip');
+    }
+
+    buildSongQueue();
+    if (!songQueue.length) {
+        return;
+    }
+
+    currentQueueIndex = (currentQueueIndex + 1) % songQueue.length;
+    const nextId = songQueue[currentQueueIndex];
+    const sourceEl = document.querySelector('[data-song-id="' + nextId + '"]');
+    playSongNew(nextId, 'none', true, sourceEl);
+}
+window.nextSong = nextSong;
+
+function setVolume() {
+    const v = Math.floor(Number(volumeBar.value) / 5);
+    audio.volume = v / 100;
+    if (v === 0) {
+        volIcon.src = ICON_VOL_0;
+    } else if (v < 33) {
+        volIcon.src = ICON_VOL_1;
+    } else if (v < 66) {
+        volIcon.src = ICON_VOL_2;
+    } else {
+        volIcon.src = ICON_VOL_3;
+    }
+}
+window.setVolume = setVolume;
+
+function iframeToggle() {
+    const panel = document.getElementById('ytbPlayerCont');
+    panel.classList.toggle('hidden');
+}
+window.iframeToggle = iframeToggle;
+
+function toggleLikeSong() {
+    if (!currentSongId) {
+        showPlaybackNotice('Play a song first, then like it.', false);
+        return;
+    }
+
+    const now = new Date();
+    const date = String(now.getDate()).padStart(2, '0') + '/' + String(now.getMonth() + 1).padStart(2, '0') + '/' + now.getFullYear();
+
+    requestJson('/like/toggle/', {
+        title: document.getElementById('songName').textContent,
+        songid: currentSongId,
+        channel: document.getElementById('channel').textContent,
+        date: date,
+        duration: document.getElementById('duration').textContent
+    }).then(function (result) {
+        if (!result.ok || !result.data || !result.data.ok) {
+            showPlaybackNotice('Could not update like status.', false);
+            return;
+        }
+
+        if (result.data.liked) {
+            likedSongIds.add(currentSongId);
+        } else {
+            likedSongIds.delete(currentSongId);
+        }
+        syncLikeUiForSong(currentSongId);
+    }).catch(function () {
+        showPlaybackNotice('Network error while updating likes.', false);
+    });
+}
+
+function renderAiSongs(songs) {
+    if (!songs || !songs.length) {
+        return '<p class="ai-empty">No songs found.</p>';
+    }
+
+    return songs.map(function (song) {
+        return '<div class="ai-song">'
+            + '<img src="' + htmlEscape(song.thumbnail) + '" onerror="handleThumbError(this)" alt="thumb">'
+            + '<div class="ai-song-meta"><strong>' + htmlEscape(song.title) + '</strong><span>' + htmlEscape(song.channel) + '</span></div>'
+            + '<button class="ai-play-btn" data-song-id="' + htmlEscape(song.id) + '" data-song-title="' + htmlEscape(song.title) + '" data-song-channel="' + htmlEscape(song.channel) + '">Play</button>'
+            + '</div>';
+    }).join('');
+}
+
+function setAiMode(mode) {
+    aiMode = mode;
+    document.querySelectorAll('.ai-tab').forEach(function (tab) {
+        tab.classList.toggle('active', tab.dataset.mode === mode);
+    });
+    aiSavePlaylistBtn.classList.toggle('hidden', mode !== 'playlist');
+}
+
+function runAiFeature(savePlaylist) {
+    const prompt = (aiPromptInput.value || '').trim();
+    if (!prompt) {
+        showPlaybackNotice('Please enter an AI prompt.', false);
+        return;
+    }
+
+    let endpoint = '/ai/chat/';
+    const payload = { prompt: prompt };
+
+    if (aiMode === 'playlist') {
+        endpoint = '/ai/playlist/';
+        payload.save = !!savePlaylist;
+    } else if (aiMode === 'search') {
+        endpoint = '/ai/search/';
+    }
+
+    aiAssistantOutput.innerHTML = '<p class="ai-empty">Thinking...</p>';
+
+    requestJson(endpoint, payload)
+        .then(function (result) {
+            if (!result.ok || !result.data || !result.data.ok) {
+                aiAssistantOutput.innerHTML = '<p class="ai-empty">' + htmlEscape((result.data && result.data.error) || 'AI request failed') + '</p>';
+                return;
+            }
+
+            if (aiMode === 'chat') {
+                currentAiMood = result.data.structured.mood || 'unknown';
+                currentAiGenre = result.data.structured.genre || 'unknown';
+                aiAssistantOutput.innerHTML = '<div class="ai-summary"><span>Mood: ' + htmlEscape(currentAiMood) + '</span><span>Genre: ' + htmlEscape(currentAiGenre) + '</span></div>' + renderAiSongs(result.data.songs || []);
+                return;
+            }
+
+            if (aiMode === 'playlist') {
+                aiAssistantOutput.innerHTML = '<div class="ai-summary"><strong>' + htmlEscape(result.data.playlist.title) + '</strong><span>' + htmlEscape(result.data.playlist.description) + '</span></div>' + renderAiSongs(result.data.songs || []);
+                return;
+            }
+
+            currentAiMood = result.data.plan.mood || 'unknown';
+            currentAiGenre = result.data.plan.genre || 'unknown';
+            aiAssistantOutput.innerHTML = '<div class="ai-summary"><span>Keyword: ' + htmlEscape(result.data.plan.keyword_query) + '</span><span>Semantic: ' + htmlEscape(result.data.plan.semantic_query) + '</span></div>' + renderAiSongs(result.data.results || []);
+        })
+        .catch(function () {
+            aiAssistantOutput.innerHTML = '<p class="ai-empty">Network error while contacting AI.</p>';
+        });
+}
+
+function runCommand(commandText) {
+    requestJson('/ai/command/', { command: commandText })
+        .then(function (result) {
+            if (!result.ok || !result.data || !result.data.ok) {
+                showPlaybackNotice('Command parser unavailable.', false);
+                return;
+            }
+
+            const action = result.data.parsed.action;
+            if (action === 'play') {
+                play();
+            } else if (action === 'pause') {
+                pause();
+            } else if (action === 'play_next') {
+                nextSong();
+            } else if (action === 'play_previous') {
+                goToStart();
+            } else if (action === 'repeat') {
+                audio.currentTime = 0;
+                play();
+            } else if (action === 'play_similar') {
+                const title = (document.getElementById('songName').textContent || '').trim();
+                if (title) {
+                    window.location.href = '/search/?search=' + encodeURIComponent(title + ' similar songs');
+                }
+            } else if (action === 'toggle_like') {
+                toggleLikeSong();
+            }
+
+            showPlaybackNotice('Command: ' + action, false);
+        })
+        .catch(function () {
+            showPlaybackNotice('Failed to run command.', false);
+        });
+}
+
+function bindSearchPageEnhancements() {
+    const modeButtons = document.querySelectorAll('.search-mode-btn');
+    if (!modeButtons.length) {
+        return;
+    }
+
+    const aiPanel = document.getElementById('aiSearchPanel');
+    const aiResults = document.getElementById('aiSearchResults');
+    const normalResults = document.getElementById('normalSearchResults');
+    const aiInput = document.getElementById('aiSearchInput');
+    const aiRun = document.getElementById('aiSearchRun');
+
+    function setMode(mode) {
+        modeButtons.forEach(function (btn) {
+            btn.classList.toggle('active', btn.dataset.mode === mode);
+        });
+
+        const ai = mode === 'ai';
+        aiPanel.classList.toggle('hidden', !ai);
+        aiResults.classList.toggle('hidden', !ai);
+        normalResults.classList.toggle('hidden', ai);
+    }
+
+    modeButtons.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            setMode(btn.dataset.mode || 'normal');
+        });
+    });
+
+    aiRun.addEventListener('click', function () {
+        const prompt = (aiInput.value || '').trim();
+        if (!prompt) {
+            aiResults.innerHTML = '<p class="ai-empty">Enter a prompt first.</p>';
+            return;
+        }
+
+        aiResults.innerHTML = '<p class="ai-empty">Searching with AI...</p>';
+        requestJson('/ai/search/', { prompt: prompt })
+            .then(function (result) {
+                if (!result.ok || !result.data || !result.data.ok) {
+                    aiResults.innerHTML = '<p class="ai-empty">' + htmlEscape((result.data && result.data.error) || 'AI search failed') + '</p>';
+                    return;
+                }
+
+                const rows = result.data.results || [];
+                if (!rows.length) {
+                    aiResults.innerHTML = '<p class="ai-empty">No songs found for that intent.</p>';
+                    return;
+                }
+
+                const summary = '<div class="ai-summary"><span>Keyword: ' + htmlEscape(result.data.plan.keyword_query)
+                    + '</span><span>Semantic: ' + htmlEscape(result.data.plan.semantic_query)
+                    + '</span><span>Mood: ' + htmlEscape(result.data.plan.mood)
+                    + '</span><span>Genre: ' + htmlEscape(result.data.plan.genre) + '</span></div>';
+
+                const cards = rows.map(function (song) {
+                    return '<div class="card c1">'
+                        + '<div class="albumcover">'
+                        + '<img class="albumimg" src="' + htmlEscape(song.thumbnail) + '" onerror="handleThumbError(this)" alt="thumb">'
+                        + '<div class="albumplay" data-song-id="' + htmlEscape(song.id) + '" data-song-title="' + htmlEscape(song.title) + '" data-song-channel="' + htmlEscape(song.channel) + '"><img src="' + ICON_PLAY + '" alt="play"></div>'
+                        + '</div>'
+                        + '<span class="label albumtitle bond-to-two-lines">' + htmlEscape(song.title) + '</span>'
+                        + '<span class="label albumauthor bond-to-two-lines">By ' + htmlEscape(song.channel) + ' (' + htmlEscape(song.source) + ')</span>'
+                        + '</div>';
+                }).join('');
+
+                aiResults.innerHTML = summary + '<div class="cardContainer ai-card-grid">' + cards + '</div>';
+            })
+            .catch(function () {
+                aiResults.innerHTML = '<p class="ai-empty">Network error while running AI search.</p>';
+            });
+    });
+
+    aiResults.addEventListener('click', function (event) {
+        const trigger = event.target.closest('.albumplay');
+        if (!trigger) {
+            return;
+        }
+        playSongNew(trigger.getAttribute('data-song-id'), 'none', true, trigger);
+    });
+}
+
+playPauseButton.addEventListener('click', function () {
     if (audio.paused) {
         play();
     } else {
@@ -492,323 +862,128 @@ playPauseButton.addEventListener("click", function () {
     }
 });
 
-var searchForm = document.forms['search-form'];
+progressBar.addEventListener('input', function () {
+    const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : dur;
+    if (!Number.isFinite(duration) || duration <= 0) {
+        return;
+    }
+    audio.currentTime = (Number(progressBar.value) * duration) / 100;
+    updateProgressUI();
+});
+
+audio.addEventListener('loadedmetadata', function () {
+    if (Number.isFinite(audio.duration)) {
+        dur = audio.duration;
+        document.getElementById('duration').innerHTML = formatTime(dur);
+    }
+});
+
+audio.addEventListener('durationchange', function () {
+    if (Number.isFinite(audio.duration)) {
+        dur = audio.duration;
+        document.getElementById('duration').innerHTML = formatTime(dur);
+    }
+});
+
+audio.addEventListener('timeupdate', function () {
+    updateProgressUI();
+});
+
+audio.addEventListener('ended', function () {
+    trackAnalytics('complete');
+    progressBar.value = 0;
+    document.getElementById('currentDur').innerHTML = '00:00';
+    nextSong();
+});
+
+if (likeIcon) {
+    likeIcon.addEventListener('click', function (event) {
+        event.preventDefault();
+        toggleLikeSong();
+    });
+}
+
+if (commandBar) {
+    commandBar.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter') {
+            return;
+        }
+        const text = (commandBar.value || '').trim();
+        if (!text) {
+            return;
+        }
+        event.preventDefault();
+        runCommand(text);
+        commandBar.value = '';
+    });
+}
+
+if (aiAssistantFab) {
+    aiAssistantFab.addEventListener('click', function () {
+        aiAssistantPanel.classList.toggle('hidden');
+    });
+}
+if (aiAssistantClose) {
+    aiAssistantClose.addEventListener('click', function () {
+        aiAssistantPanel.classList.add('hidden');
+    });
+}
+document.querySelectorAll('.ai-tab').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+        setAiMode(tab.dataset.mode || 'chat');
+    });
+});
+if (aiRunBtn) {
+    aiRunBtn.addEventListener('click', function () {
+        runAiFeature(false);
+    });
+}
+if (aiSavePlaylistBtn) {
+    aiSavePlaylistBtn.addEventListener('click', function () {
+        runAiFeature(true);
+    });
+}
+if (aiAssistantOutput) {
+    aiAssistantOutput.addEventListener('click', function (event) {
+        const trigger = event.target.closest('.ai-play-btn');
+        if (!trigger) {
+            return;
+        }
+        playSongNew(trigger.getAttribute('data-song-id'), 'none', true, trigger);
+    });
+}
+
+const searchForm = document.forms['search-form'];
 if (searchForm) {
     searchForm.addEventListener('submit', function (event) {
-        var searchInput = document.getElementById('searchBar');
-        var query = searchInput ? (searchInput.value || '').trim() : '';
+        const query = (document.getElementById('searchBar').value || '').trim();
         if (!query) {
             return;
         }
         event.preventDefault();
-        searchWithoutReload(query, true);
+        window.location.href = '/search/?search=' + encodeURIComponent(query);
     });
 }
 
-window.addEventListener('popstate', function () {
-    if (!window.location.pathname.startsWith('/search')) {
-        return;
-    }
-    var url = new URL(window.location.href);
-    var query = (url.searchParams.get('search') || '').trim();
-    if (!query) {
-        return;
-    }
-    searchWithoutReload(query, false);
+document.querySelectorAll('.seeall-toggle').forEach(function (button) {
+    button.addEventListener('click', function () {
+        const targetId = button.dataset.target;
+        const cards = document.getElementById(targetId);
+        if (!cards) {
+            return;
+        }
+        const expanded = cards.classList.toggle('expanded');
+        button.textContent = expanded ? 'SHOW LESS <<' : 'SEE ALL >>';
+    });
 });
 
-bindCardDrag();
-bindSeeAllToggles();
-
-
-    var heart = document.getElementById('like-icon');
-    heart.addEventListener("click", function () {
-        document.getElementById('stroke').classList.toggle('hidden');
-        document.getElementById('filled').classList.toggle('hidden');
-        
-        // Send like request
-        var today = new Date();
-        var dd = String(today.getDate()).padStart(2, '0');
-        var mm = String(today.getMonth() + 1).padStart(2, '0');
-        var yyyy = today.getFullYear();
-        today = dd + '/' + mm + '/' + yyyy;
-        
-        $.ajax({
-            type:'POST',
-            url:window.location.pathname,
-            data:{
-                'title':$("#songName").text(),
-                'songid': currentSongId,
-                'channel': $("#channel").text(),
-                'date': today,
-                'duration': $("#duration").text(),
-                'csrfmiddlewaretoken': $('input[name=csrfmiddlewaretoken]').val()
-            },
-        });
-    });
-
-
-    function iframeToggle() {
-        document.getElementById('ytbPlayerCont').classList.toggle('hidden');
-    };
-
-
-    document.getElementById("progressBar").value = 0;
-    updatePlayPauseUi(false);
-    document.getElementById("currentDur").innerHTML = '00:00';
-    document.getElementById("duration").innerHTML = '00:00';
-
-    // Audio event listeners
-    audio.addEventListener('loadedmetadata', function() {
-        if (Number.isFinite(audio.duration)) {
-            dur = audio.duration;
-            document.getElementById("duration").innerHTML = formatTime(dur);
-            updateProgressUI();
-        }
-    });
-
-    audio.addEventListener('durationchange', function() {
-        if (Number.isFinite(audio.duration)) {
-            dur = audio.duration;
-            document.getElementById("duration").innerHTML = formatTime(dur);
-            updateProgressUI();
-        }
-    });
-
-    audio.addEventListener('timeupdate', function() {
-        updateProgressUI();
-    });
-
-    audio.addEventListener('play', function () {
-        updatePlayPauseUi(true);
-    });
-
-    audio.addEventListener('pause', function () {
-        updatePlayPauseUi(false);
-    });
-
-    audio.addEventListener('ended', function() {
-        updatePlayPauseUi(false);
-        progressBar.value = 0;
-        document.getElementById("currentDur").innerHTML = '00:00';
-        nextSong();
-    });
-
-    // this function gets called when API is ready to use
-    function onYouTubePlayerAPIReady() {
-        // create the global player from the specific iframe (#video)
-        player = new YT.Player('video', {
-            playerVars: {
-                autoplay: 1,
-                controls: 0,
-                disablekb: 1,
-                iv_load_policy: 3,
-                rel: 0,
-                origin: window.location.origin
-            },
-            events: {
-                // call this function when player is ready to use
-                'onReady': onPlayerReady,
-                'onStateChange': onPlayerStateChange,
-                'onError': onPlayerError
-            }
-        });
-        buildSongQueue();
-    }
-
-    function onYouTubeIframeAPIReady() {
-        onYouTubePlayerAPIReady();
-    }
-
-    function str_pad_left(string, pad, length) {
-        return (new Array(length + 1).join(pad) + Math.round(string)).slice(-length);
-    }
-
-
-
-
-    var iframe = document.getElementById("video");
-
-    function buildSongQueue() {
-        var ids = [];
-        document.querySelectorAll('[data-song-id]').forEach(function (el) {
-            var id = (el.dataset.songId || '').trim();
-            if (id && !ids.includes(id)) {
-                ids.push(id);
-            }
-        });
-        songQueue = ids;
-    }
-
-    function setCurrentSong(id, sourceEl=null) {
-        currentSongId = id;
-        ytFallbackLink.href = `https://youtu.be/${id}`;
-        setCurrentSongInfoFromElement(sourceEl);
-    }
-
-    function showPlaybackNotice(message, showLink=false) {
-        playbackNotice.textContent = message;
-        playbackNotice.classList.remove('hidden');
-        if (showLink) {
-            ytFallbackLink.classList.remove('hidden');
-        } else {
-            ytFallbackLink.classList.add('hidden');
-        }
-    }
-
-    function hidePlaybackNotice() {
-        playbackNotice.classList.add('hidden');
-        ytFallbackLink.classList.add('hidden');
-    }
-
-    function playNextPlayableSong() {
-        buildSongQueue();
-        if (!songQueue.length) {
-            showPlaybackNotice('No playable songs were found.', true);
-            return;
-        }
-
-        var attempts = 0;
-        while (attempts < songQueue.length) {
-            currentQueueIndex = (currentQueueIndex + 1) % songQueue.length;
-            var nextId = songQueue[currentQueueIndex];
-            if (nextId && !blockedSongIds.has(nextId)) {
-                playSongNew(nextId, 'none', true);
-                return;
-            }
-            attempts += 1;
-        }
-
-        showPlaybackNotice('Most tracks in this list cannot be embedded. Use Watch on YouTube.', true);
-    }
-
-    function playSongNew(id, playlistId, liked=false, sourceEl=null) {
-        if (!id) {
-            return;
-        }
-
-        buildSongQueue();
-        setCurrentSong(id, sourceEl);
-        hidePlaybackNotice();
-        progressBar.value = 0;
-        document.getElementById("currentDur").innerHTML = '00:00';
-        document.getElementById("duration").innerHTML = '00:00';
-        dur = 0;
-
-        var queueIndex = songQueue.indexOf(id);
-        if (queueIndex !== -1) {
-            currentQueueIndex = queueIndex;
-        }
-
-        fetch(`/get_audio_url/${id}/`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.url) {
-                    audio.src = data.url;
-                    play();
-                } else {
-                    updatePlayPauseUi(false);
-                    showPlaybackNotice('Failed to load audio.', true);
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching audio URL:', error);
-                updatePlayPauseUi(false);
-                showPlaybackNotice('Error loading audio.', true);
-            });
-    };
-
-    function nextSong(){
-        if (songQueue.length) {
-            playNextPlayableSong();
-            return;
-        }
-    }
-
-
-    function play() {
-        audio.play()
-            .then(function() {
-                updatePlayPauseUi(true);
-            })
-            .catch(function(error) {
-                console.error('Audio play blocked:', error);
-                updatePlayPauseUi(false);
-            });
-    };
-
-    function pause() {
-        audio.pause();
-        updatePlayPauseUi(false);
-    };
-
-
-    function infoUpdate() {
-      try{
-                var activePlayer = getActivePlayer();
-                if (!activePlayer) {
-                        return;
-                }
-                dur = activePlayer.getDuration();
-        let minutes = Math.floor(dur / 60);
-        let seconds = dur - minutes * 60;
-        let finalTime = str_pad_left(minutes, '0', 2) + ':' + str_pad_left(seconds, '0', 2);
-        document.getElementById("duration").innerHTML = finalTime;
-                var nowPlaying = activePlayer.getVideoData();
-        // console.log(nowPlaying, 'hey')
-        document.getElementById('songName').innerHTML = nowPlaying['title'];
-        document.getElementById('channel').innerHTML = nowPlaying['author'];
-      }
-      catch{
-          console.log('error!')
-          document.getElementById('songName').innerHTML='Heer Ranjha'
-          document.getElementById('channel').innerHTML='BB Ki Vines'
-      }
-    };
-
-
-
-
-
-
-
-    function goToStart() {
-        audio.currentTime = 0;
-        progressBar.value = 0;
-        play();
-    }
-
-
-    function setVolume() {
-        let v = Math.floor(document.getElementById("volumeBar").value / 5);
-        audio.volume = v / 100;
-        // vol_ico = document.getElementById('vol-icon');
-        // if (v == 0) {
-        //     vol_ico.src = ICON_VOL_0;
-        // }
-        // else if (v < 33) {
-        //     vol_ico.src = ICON_VOL_1;
-        // }
-        // else if (v < 66) {
-        //     vol_ico.src = ICON_VOL_2;
-        // }
-        // else {
-        //     vol_ico.src = ICON_VOL_3;
-        // }
-
-    }
-
-progressBar.addEventListener('input', function () {
-    var duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : dur;
-    if (!Number.isFinite(duration) || duration <= 0) {
-        return;
-    }
-    var seek = Number(progressBar.value);
-    var finalSeek = (seek * duration) / 100;
-    audio.currentTime = finalSeek;
-    updateProgressUI();
-})
+setAiMode('chat');
+bindSearchPageEnhancements();
+buildSongQueue();
+setVolume();
+syncLikeUiForSong(null);
+document.getElementById('currentDur').innerHTML = '00:00';
+document.getElementById('duration').innerHTML = '00:00';
 </script>
 </body>
-
 </html>

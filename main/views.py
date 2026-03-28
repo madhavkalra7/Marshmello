@@ -1,21 +1,28 @@
-from django.http.response import HttpResponse
-from django.shortcuts import render, redirect
-from django.contrib.auth.models import User
-from .models import playlist_user
-from django.urls.base import reverse
-from django.contrib.auth import authenticate,login,logout
-from youtube_search import YoutubeSearch
 import json
 import os
 import time
-from django.conf import settings
-from django.http import JsonResponse
+from datetime import timedelta
+
+import requests
 import yt_dlp
-# import cardupdate
+from django.conf import settings
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import User
+from django.db.models import Count, Sum
+from django.http import JsonResponse, StreamingHttpResponse
+from django.db.models.functions import TruncDate
+from django.http import JsonResponse
+from django.http.response import HttpResponse
+from django.shortcuts import redirect, render
+from django.utils import timezone
+from django.views.decorators.http import require_http_methods
+from youtube_search import YoutubeSearch
+
+from .ai.ai_client import AIClientError, MarshmelloAIClient
+from .models import ai_generated_playlist, listening_analytics, playlist_song, playlist_user
 
 
-
-with open(os.path.join(settings.BASE_DIR, 'card.json'), 'r') as f:
+with open(os.path.join(settings.BASE_DIR, "card.json"), "r", encoding="utf-8") as f:
     CONTAINER = json.load(f)
 
 
@@ -41,6 +48,7 @@ CURATED_CATEGORY_QUERIES = {
 CURATED_BUCKET_CACHE = {"Haryanvi": [], "Punjabi": [], "Bhakti": []}
 CURATED_BUCKET_CACHE_TS = 0
 CURATED_BUCKET_CACHE_TTL_SECONDS = 6 * 60 * 60
+AI_CLIENT = None
 
 
 def _song_from_search_result(search_item):
@@ -54,6 +62,19 @@ def _song_from_search_result(search_item):
     channel = (search_item.get("channel") or "Unknown Artist").strip()
 
     return [thumbnail, title, channel, video_id]
+
+
+def _song_from_search_result_dict(search_item):
+    song = _song_from_search_result(search_item)
+    if song is None:
+        return None
+
+    return {
+        "thumbnail": song[0],
+        "title": song[1],
+        "channel": song[2],
+        "id": song[3],
+    }
 
 
 def _dedupe_songs_by_video_id(songs):
@@ -174,140 +195,580 @@ def _build_home_container(container):
 
     return ordered
 
+
+def _get_ai_client():
+    global AI_CLIENT
+    if AI_CLIENT is None:
+        AI_CLIENT = MarshmelloAIClient()
+    return AI_CLIENT
+
+
+def _current_playlist_user(request):
+    return playlist_user.objects.get_or_create(username=str(request.user))[0]
+
+
+def _liked_song_ids_for_user(cur_user):
+    return list(
+        cur_user.playlist_song_set.values_list("song_youtube_id", flat=True)
+    )
+
+
+def _request_data(request):
+    if request.content_type and "application/json" in request.content_type:
+        try:
+            return json.loads((request.body or b"{}").decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return {}
+    return request.POST
+
+
+def _search_songs(query, max_results=10):
+    query = (query or "").strip()
+    if not query:
+        return []
+
+    try:
+        search_results = YoutubeSearch(query, max_results=max_results).to_dict()
+    except Exception:
+        return []
+
+    songs = []
+    seen = set()
+    for item in search_results:
+        song = _song_from_search_result_dict(item)
+        if song is None:
+            continue
+        if song["id"] in seen:
+            continue
+        seen.add(song["id"])
+        songs.append(song)
+    return songs
+
+
+def _group_search_cards(song_list):
+    return [song_list[:10:2], song_list[1:10:2]]
+
 def default(request):
     global CONTAINER
     if request.user.is_anonymous:
         return redirect('/login')
 
-    if request.method == 'POST':
-
+    if request.method == "POST":
         add_playlist(request)
         return HttpResponse("")
 
-    song = 'kSFJGEHDCrQ'
+    song = "kSFJGEHDCrQ"
     home_container = _build_home_container(CONTAINER)
-    return render(request, 'player.html',{'CONTAINER':home_container, 'song':song})
+    cur_user = _current_playlist_user(request)
+    liked_song_ids = _liked_song_ids_for_user(cur_user)
+    return render(
+        request,
+        "player.html",
+        {
+            "CONTAINER": home_container,
+            "song": song,
+            "liked_song_ids_json": json.dumps(liked_song_ids),
+        },
+    )
 
 def signup(request):
-    context= {'username':True,'email':True}
+    context = {"username": True, "email": True}
     if not request.user.is_anonymous:
-        return redirect('/')
-    if request.method == 'POST':
-        username = request.POST.get('username')
-        email = request.POST.get('email')
-        password = request.POST.get('password')
+        return redirect("/")
+    if request.method == "POST":
+        username = request.POST.get("username")
+        email = request.POST.get("email")
+        password = request.POST.get("password")
 
-        if (username,) in User.objects.values_list("username",) :
-            context['username'] = False
-            return render(request,'signup.html',context)
+        if (username,) in User.objects.values_list("username"):
+            context["username"] = False
+            return render(request, "signup.html", context)
 
-        elif (email,) in User.objects.values_list("email",):
-            context['email'] = False
-            return render(request,'signup.html',context)
+        if (email,) in User.objects.values_list("email"):
+            context["email"] = False
+            return render(request, "signup.html", context)
 
         playlist_user.objects.create(username=username)
-        new_user = User.objects.create_user(username,email,password)
+        new_user = User.objects.create_user(username, email, password)
         new_user.save()
-        login(request,new_user)
-        return redirect('/')
-    return render(request,'signup.html',context)
+        login(request, new_user)
+        return redirect("/")
+    return render(request, "signup.html", context)
 
 
 def login_auth(request):
     if not request.user.is_anonymous:
-        return redirect('/')
-    if request.method == 'POST':
-        identifier = (request.POST.get('username') or '').strip()
-        password = request.POST.get('password')
-        # print(User.objects.values_list("password",))
+        return redirect("/")
+    if request.method == "POST":
+        identifier = (request.POST.get("username") or "").strip()
+        password = request.POST.get("password")
 
         user = authenticate(username=identifier, password=password)
 
-        # Fallback: allow login via email as well.
         if user is None and identifier:
             email_user = User.objects.filter(email__iexact=identifier).first()
             if email_user is not None:
                 user = authenticate(username=email_user.username, password=password)
 
         if user is not None:
-            # A backend authenticated the credentials
-            login(request,user)
-            return redirect('/')
-
+            login(request, user)
+            return redirect("/")
         else:
-            # No backend authenticated the credentials
-            context= {'case':False}
-            return render(request,'login.html',context)
+            context = {"case": False}
+            return render(request, "login.html", context)
 
-
-    context= {'case':True}
-    return render(request,'login.html',context)
+    context = {"case": True}
+    return render(request, "login.html", context)
 
 
 
 def logout_auth(request):
     logout(request)
-    return redirect('/login')
+    return redirect("/login")
 
 def get_audio_url(request, video_id):
     ydl_opts = {
-        'format': 'bestaudio/best',
-        'quiet': True,
-        'no_warnings': True,
+        "format": "bestaudio/best",
+        "quiet": True,
+        "no_warnings": True,
     }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(f'https://www.youtube.com/watch?v={video_id}', download=False)
-            url = info['url']
-        return JsonResponse({'url': url})
+            info = ydl.extract_info(
+                f"https://www.youtube.com/watch?v={video_id}", download=False
+            )
+            url = info["url"]
+        return JsonResponse({"url": url})
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+def get_audio_stream(request, video_id):
+    ydl_opts = {
+        "format": "bestaudio/best",
+        "quiet": True,
+        "no_warnings": True,
+    }
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(
+                f"https://www.youtube.com/watch?v={video_id}", download=False
+            )
+            audio_url = info["url"]
+        
+        # Proxy the audio stream
+        headers_to_forward = {}
+        for header in ['Range', 'Accept', 'User-Agent', 'Referer']:
+            if header in request.headers:
+                headers_to_forward[header] = request.headers[header]
+        
+        response = requests.get(audio_url, stream=True, headers=headers_to_forward)
+        return StreamingHttpResponse(
+            response.iter_content(chunk_size=65536),
+            content_type=response.headers.get('content-type', 'audio/webm'),
+            headers={
+                'Content-Length': response.headers.get('content-length'),
+                'Accept-Ranges': 'bytes',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Range',
+                'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+            }
+        )
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 def playlist(request):
     if request.user.is_anonymous:
-        return redirect('/login')
-    cur_user = playlist_user.objects.get(username = request.user)
+        return redirect("/login")
+    cur_user = _current_playlist_user(request)
+
     try:
-      song = request.GET.get('song')
-      song = cur_user.playlist_song_set.get(song_title=song)
-      song.delete()
-    except:
-      pass
-    if request.method == 'POST':
+        song_id = (request.GET.get("song_id") or "").strip()
+        song_title = (request.GET.get("song") or "").strip()
+        if song_id:
+            cur_user.playlist_song_set.filter(song_youtube_id=song_id).delete()
+        elif song_title:
+            cur_user.playlist_song_set.filter(song_title=song_title).delete()
+    except Exception:
+        pass
+
+    if request.method == "POST":
         add_playlist(request)
         return HttpResponse("")
-    song = 'kSFJGEHDCrQ'
+
+    song = "kSFJGEHDCrQ"
     user_playlist = cur_user.playlist_song_set.all()
-    # print(list(playlist_row)[0].song_title)
-    return render(request, 'playlist.html', {'song':song,'user_playlist':user_playlist})
+    liked_song_ids = _liked_song_ids_for_user(cur_user)
+    recent_ai_playlists = ai_generated_playlist.objects.filter(user=cur_user)[:8]
+    return render(
+        request,
+        "playlist.html",
+        {
+            "song": song,
+            "user_playlist": user_playlist,
+            "recent_ai_playlists": recent_ai_playlists,
+            "liked_song_ids_json": json.dumps(liked_song_ids),
+        },
+    )
 
 
 def search(request):
-  if request.method == 'POST':
+    if request.user.is_anonymous:
+        return redirect("/login")
 
-    add_playlist(request)
-    return HttpResponse("")
-  try:
-    search = request.GET.get('search')
-    song = YoutubeSearch(search, max_results=10).to_dict()
-    song_li = [song[:10:2],song[1:10:2]]
-    # print(song_li)
-  except:
-    return redirect('/')
+    if request.method == "POST":
+        add_playlist(request)
+        return HttpResponse("")
 
-  return render(request, 'search.html', {'CONTAINER': song_li, 'song':song_li[0][0]['id']})
+    query = (request.GET.get("search") or "").strip()
+    if not query:
+        return redirect("/")
+
+    songs = _search_songs(query, max_results=10)
+    song_li = _group_search_cards(songs)
+    default_song = song_li[0][0]["id"] if song_li and song_li[0] else "kSFJGEHDCrQ"
+
+    cur_user = _current_playlist_user(request)
+    liked_song_ids = _liked_song_ids_for_user(cur_user)
+    return render(
+        request,
+        "search.html",
+        {
+            "CONTAINER": song_li,
+            "song": default_song,
+            "search_query": query,
+            "liked_song_ids_json": json.dumps(liked_song_ids),
+        },
+    )
+
+
+@require_http_methods(["POST"])
+def toggle_like(request):
+    if request.user.is_anonymous:
+        return JsonResponse({"ok": False, "error": "Unauthorized"}, status=401)
+
+    payload = _request_data(request)
+    song_id = str(payload.get("songid") or payload.get("song_id") or "").strip()
+    if not song_id:
+        return JsonResponse({"ok": False, "error": "Missing song id"}, status=400)
+
+    cur_user = _current_playlist_user(request)
+    existing_song = cur_user.playlist_song_set.filter(song_youtube_id=song_id).first()
+    if existing_song is not None:
+        existing_song.delete()
+        return JsonResponse({"ok": True, "liked": False, "song_id": song_id})
+
+    title = str(payload.get("title") or "Untitled Song").strip()[:200]
+    channel = str(payload.get("channel") or "Unknown Artist").strip()[:100]
+    duration = str(payload.get("duration") or "00:00").strip()[:7]
+    date = str(payload.get("date") or timezone.now().strftime("%d/%m/%Y")).strip()[:12]
+
+    album_src = ""
+    try:
+        songdic = (YoutubeSearch(title or song_id, max_results=1).to_dict())[0]
+        thumbs = songdic.get("thumbnails") or []
+        album_src = thumbs[0] if thumbs else f"https://img.youtube.com/vi/{song_id}/mqdefault.jpg"
+    except Exception:
+        album_src = f"https://img.youtube.com/vi/{song_id}/mqdefault.jpg"
+
+    cur_user.playlist_song_set.create(
+        song_title=title,
+        song_dur=duration,
+        song_albumsrc=album_src,
+        song_channel=channel,
+        song_date_added=date,
+        song_youtube_id=song_id,
+    )
+    return JsonResponse({"ok": True, "liked": True, "song_id": song_id})
+
+
+@require_http_methods(["POST"])
+def ai_chat(request):
+    if request.user.is_anonymous:
+        return JsonResponse({"ok": False, "error": "Unauthorized"}, status=401)
+
+    payload = _request_data(request)
+    prompt = str(payload.get("prompt") or payload.get("query") or "").strip()
+    if not prompt:
+        return JsonResponse({"ok": False, "error": "Prompt is required"}, status=400)
+
+    try:
+        structured = _get_ai_client().build_music_chat_query(prompt)
+    except AIClientError as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=500)
+    except Exception:
+        structured = {"query": prompt, "mood": "mixed", "genre": "mixed"}
+
+    songs = _search_songs(structured["query"], max_results=12)
+    return JsonResponse(
+        {
+            "ok": True,
+            "input": prompt,
+            "structured": structured,
+            "songs": songs,
+        }
+    )
+
+
+@require_http_methods(["POST"])
+def ai_playlist(request):
+    if request.user.is_anonymous:
+        return JsonResponse({"ok": False, "error": "Unauthorized"}, status=401)
+
+    payload = _request_data(request)
+    prompt = str(payload.get("prompt") or "").strip()
+    save_playlist = str(payload.get("save") or "false").lower() in {"1", "true", "yes"}
+    if not prompt:
+        return JsonResponse({"ok": False, "error": "Prompt is required"}, status=400)
+
+    try:
+        generated = _get_ai_client().build_smart_playlist(prompt)
+    except AIClientError as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=500)
+    except Exception:
+        generated = {
+            "title": "AI Playlist",
+            "description": f"Generated from: {prompt}",
+            "queries": [prompt],
+        }
+
+    playlist_items = []
+    aggregated = []
+    seen = set()
+    for query in generated["queries"][:6]:
+        songs = _search_songs(query, max_results=4)
+        playlist_items.append({"query": query, "songs": songs})
+        for song in songs:
+            sid = song["id"]
+            if sid in seen:
+                continue
+            seen.add(sid)
+            aggregated.append(song)
+
+    saved_id = None
+    if save_playlist:
+        cur_user = _current_playlist_user(request)
+        created = ai_generated_playlist.objects.create(
+            user=cur_user,
+            prompt=prompt,
+            title=generated["title"],
+            description=generated["description"],
+            queries=generated["queries"],
+        )
+        saved_id = created.id
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "input": prompt,
+            "playlist": generated,
+            "items": playlist_items,
+            "songs": aggregated,
+            "saved_id": saved_id,
+        }
+    )
+
+
+@require_http_methods(["POST"])
+def ai_command(request):
+    if request.user.is_anonymous:
+        return JsonResponse({"ok": False, "error": "Unauthorized"}, status=401)
+
+    payload = _request_data(request)
+    command = str(payload.get("command") or payload.get("prompt") or "").strip()
+    if not command:
+        return JsonResponse({"ok": False, "error": "Command is required"}, status=400)
+
+    try:
+        parsed = _get_ai_client().parse_player_command(command)
+    except AIClientError as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=500)
+    except Exception:
+        parsed = {"action": "unknown", "confidence": 0.0, "reason": "Fallback parser used."}
+
+    return JsonResponse({"ok": True, "input": command, "parsed": parsed})
+
+
+@require_http_methods(["POST"])
+def ai_search(request):
+    if request.user.is_anonymous:
+        return JsonResponse({"ok": False, "error": "Unauthorized"}, status=401)
+
+    payload = _request_data(request)
+    prompt = str(payload.get("prompt") or payload.get("query") or "").strip()
+    if not prompt:
+        return JsonResponse({"ok": False, "error": "Query is required"}, status=400)
+
+    try:
+        plan = _get_ai_client().build_hybrid_search_plan(prompt)
+    except AIClientError as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=500)
+    except Exception:
+        plan = {
+            "keyword_query": prompt,
+            "semantic_query": prompt,
+            "mood": "any",
+            "genre": "any",
+            "era": "any",
+        }
+
+    keyword_results = _search_songs(plan["keyword_query"], max_results=8)
+    semantic_results = _search_songs(plan["semantic_query"], max_results=8)
+
+    merged = []
+    seen = set()
+    for source, bucket in (("keyword", keyword_results), ("semantic", semantic_results)):
+        for song in bucket:
+            sid = song["id"]
+            if sid in seen:
+                continue
+            seen.add(sid)
+            merged.append(
+                {
+                    "id": sid,
+                    "title": song["title"],
+                    "channel": song["channel"],
+                    "thumbnail": song["thumbnail"],
+                    "source": source,
+                }
+            )
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "input": prompt,
+            "plan": plan,
+            "keyword_results": keyword_results,
+            "semantic_results": semantic_results,
+            "results": merged,
+        }
+    )
+
+
+@require_http_methods(["POST"])
+def analytics_track(request):
+    if request.user.is_anonymous:
+        return JsonResponse({"ok": False, "error": "Unauthorized"}, status=401)
+
+    payload = _request_data(request)
+    cur_user = _current_playlist_user(request)
+
+    song_id = str(payload.get("song_id") or payload.get("songid") or "").strip()
+    title = str(payload.get("title") or "").strip()
+    genre = str(payload.get("genre") or "unknown").strip() or "unknown"
+    mood = str(payload.get("mood") or "unknown").strip() or "unknown"
+    event_type = str(payload.get("event_type") or listening_analytics.EVENT_PLAY).strip()
+
+    try:
+        listen_seconds = int(float(payload.get("listen_seconds") or 0))
+    except (TypeError, ValueError):
+        listen_seconds = 0
+
+    if event_type not in {
+        listening_analytics.EVENT_PLAY,
+        listening_analytics.EVENT_COMPLETE,
+        listening_analytics.EVENT_SKIP,
+    }:
+        event_type = listening_analytics.EVENT_PLAY
+
+    listening_analytics.objects.create(
+        user=cur_user,
+        song_youtube_id=song_id,
+        song_title=title,
+        genre=genre,
+        mood=mood,
+        listen_seconds=max(0, listen_seconds),
+        event_type=event_type,
+    )
+
+    return JsonResponse({"ok": True})
+
+
+def analytics_dashboard(request):
+    if request.user.is_anonymous:
+        return redirect("/login")
+
+    cur_user = _current_playlist_user(request)
+    events = listening_analytics.objects.filter(user=cur_user)
+
+    top_genres_qs = (
+        events.values("genre")
+        .annotate(count=Count("id"))
+        .order_by("-count")[:6]
+    )
+    top_genres = [item["genre"] for item in top_genres_qs]
+    top_genres_counts = [item["count"] for item in top_genres_qs]
+
+    now = timezone.now()
+    last_week = now - timedelta(days=6)
+    weekly_qs = (
+        events.filter(created_at__date__gte=last_week.date())
+        .annotate(day=TruncDate("created_at"))
+        .values("day")
+        .annotate(play_count=Count("id"), seconds=Sum("listen_seconds"))
+        .order_by("day")
+    )
+
+    weekly_labels = [item["day"].strftime("%a") for item in weekly_qs]
+    weekly_play_counts = [item["play_count"] for item in weekly_qs]
+    weekly_seconds = [int(item["seconds"] or 0) for item in weekly_qs]
+
+    total_plays = events.count()
+    total_seconds = int(events.aggregate(total=Sum("listen_seconds"))["total"] or 0)
+    top_songs = (
+        events.exclude(song_title="")
+        .values("song_title")
+        .annotate(count=Count("id"))
+        .order_by("-count")[:8]
+    )
+
+    context = {
+        "song": "kSFJGEHDCrQ",
+        "top_genres": top_genres_qs,
+        "top_songs": top_songs,
+        "total_plays": total_plays,
+        "total_seconds": total_seconds,
+        "top_genres_labels_json": json.dumps(top_genres),
+        "top_genres_counts_json": json.dumps(top_genres_counts),
+        "weekly_labels_json": json.dumps(weekly_labels),
+        "weekly_play_counts_json": json.dumps(weekly_play_counts),
+        "weekly_seconds_json": json.dumps(weekly_seconds),
+        "liked_song_ids_json": json.dumps(_liked_song_ids_for_user(cur_user)),
+    }
+    return render(request, "analytics.html", context)
 
 
 
 
 def add_playlist(request):
-    cur_user = playlist_user.objects.get(username = request.user)
+    if request.user.is_anonymous:
+        return False
 
-    if (request.POST['title'],) not in cur_user.playlist_song_set.values_list('song_title', ):
+    cur_user = _current_playlist_user(request)
+    song_id = str(request.POST.get("songid") or "").strip()
+    title = str(request.POST.get("title") or "").strip()
+    if not song_id:
+        return False
 
-        songdic = (YoutubeSearch(request.POST['title'], max_results=1).to_dict())[0]
-        song__albumsrc=songdic['thumbnails'][0]
-        cur_user.playlist_song_set.create(song_title=request.POST['title'],song_dur=request.POST['duration'],
-        song_albumsrc = song__albumsrc,
-        song_channel=request.POST['channel'], song_date_added=request.POST['date'],song_youtube_id=request.POST['songid'])
+    if cur_user.playlist_song_set.filter(song_youtube_id=song_id).exists():
+        return False
+
+    album_src = f"https://img.youtube.com/vi/{song_id}/mqdefault.jpg"
+    try:
+        songdic = (YoutubeSearch(title or song_id, max_results=1).to_dict())[0]
+        thumbs = songdic.get("thumbnails") or []
+        if thumbs:
+            album_src = thumbs[0]
+    except Exception:
+        pass
+
+    cur_user.playlist_song_set.create(
+        song_title=(title or "Untitled Song")[:200],
+        song_dur=str(request.POST.get("duration") or "00:00")[:7],
+        song_albumsrc=album_src,
+        song_channel=str(request.POST.get("channel") or "Unknown Artist")[:100],
+        song_date_added=str(request.POST.get("date") or timezone.now().strftime("%d/%m/%Y"))[:12],
+        song_youtube_id=song_id,
+    )
+    return True

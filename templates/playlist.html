@@ -31,6 +31,23 @@ active
 
 </div>
 
+{% if recent_ai_playlists %}
+<div class="playlist__ai-block">
+    <div class="catTitle">
+        <span class="label catName">AI Generated Playlists</span>
+    </div>
+    <div class="playlist__ai-grid">
+        {% for generated in recent_ai_playlists %}
+        <div class="playlist__ai-card">
+            <h4>{{ generated.title }}</h4>
+            <p>{{ generated.description }}</p>
+            <small>{{ generated.created_at|date:"d M Y, H:i" }}</small>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 
 <!--play button-->
 
@@ -57,25 +74,30 @@ active
 
     <div class="playlist__songlist">
     {% for song in user_playlist %}
-    <form action="" method="get">
-                <div class="playlist__song playlist__row" data-song-id="{{ song.song_youtube_id }}" onclick='playSongNew("{{ song.song_youtube_id }}","false","true")'>
+        <form action="" method="get" class="playlist__deleteForm">
+                                <div class="playlist__song playlist__row" data-song-id="{{ song.song_youtube_id }}" data-song-title="{{ song.song_title|escape }}" data-song-channel="{{ song.song_channel|escape }}" onclick='playSongNew("{{ song.song_youtube_id }}","none",true,this)'>
         <div class="playlist__headerTitle">
           <img class="playlist__albumimg" src="{{song.song_albumsrc}}" alt ='' onerror="handleThumbError(this)"/>
 
           <div class="playlist__songTitle ellipsis_one_line">
           {{song.song_title}}
           </div>
-          <textarea name="song" id="song_name_delete" cols="1" rows="1">{{song.song_title}}</textarea>
+                    <input type="hidden" name="song_id" value="{{ song.song_youtube_id }}" />
 
           </div>
         <div class="playlist__headerAlbum ellipsis_one_line">{{song.song_channel}}</div>
         <div class="playlist__headerDate">{{song.song_date_added}}</div>
         <div class="playlist__headerDuration">
         {{song.song_dur}}
-        <button type='submit' class="delete"><img src="https://cdn.discordapp.com/attachments/768083738848133130/777588678028951572/delete-icon-28.jpg" alt=""</button>
+                <button type='submit' class="delete" onclick="event.stopPropagation();"><img src="https://cdn.discordapp.com/attachments/768083738848133130/777588678028951572/delete-icon-28.jpg" alt="delete"></button>
         </div>
     </div>
     </form>
+        {% empty %}
+        <div class="playlist__empty">
+                <h3>No liked songs yet</h3>
+                <p>Play tracks and hit the heart icon to build your liked collection.</p>
+        </div>
     {% endfor %}
     </div>
 

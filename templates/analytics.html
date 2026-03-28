@@ -1,0 +1,161 @@
+{% extends 'player.html' %}
+{% load static %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'search.css' %}?{% now " U " %}">
+{% endblock %}
+
+{% block home %}
+{% endblock %}
+
+{% block search %}
+{% endblock %}
+
+{% block main %}
+<div class="homecontainer analytics-page">
+    <div class="home-hero analytics-hero">
+        <div class="home-hero-content">
+            <p class="hero-kicker">Music Analytics</p>
+            <h1 class="hero-title">Your Weekly Listening Intelligence</h1>
+            <p class="hero-subtitle">Track your plays, time spent, and top genres in one AI-ready dashboard.</p>
+        </div>
+    </div>
+
+    <div class="analytics-grid">
+        <div class="analytics-tile">
+            <p class="analytics-label">Songs Played</p>
+            <h3 class="analytics-value">{{ total_plays }}</h3>
+        </div>
+        <div class="analytics-tile">
+            <p class="analytics-label">Listening Time</p>
+            <h3 class="analytics-value">{{ total_seconds }} sec</h3>
+        </div>
+    </div>
+
+    <div class="analytics-chart-grid">
+        <div class="analytics-chart-card">
+            <h3>Top Genres</h3>
+            <canvas id="genreChart"></canvas>
+        </div>
+        <div class="analytics-chart-card">
+            <h3>Weekly Plays</h3>
+            <canvas id="weeklyChart"></canvas>
+        </div>
+        <div class="analytics-chart-card">
+            <h3>Weekly Listening Time (sec)</h3>
+            <canvas id="weeklyTimeChart"></canvas>
+        </div>
+    </div>
+
+    <div class="analytics-list-card">
+        <h3>Top Songs</h3>
+        <div class="analytics-list">
+            {% for song in top_songs %}
+            <div class="analytics-row">
+                <span class="analytics-song">{{ song.song_title }}</span>
+                <span class="analytics-count">{{ song.count }} plays</span>
+            </div>
+            {% empty %}
+            <div class="analytics-row">
+                <span class="analytics-song">No listening events yet.</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+(function() {
+    const genres = JSON.parse('{{ top_genres_labels_json|escapejs }}');
+    const genreCounts = JSON.parse('{{ top_genres_counts_json|escapejs }}');
+    const weeklyLabels = JSON.parse('{{ weekly_labels_json|escapejs }}');
+    const weeklyCounts = JSON.parse('{{ weekly_play_counts_json|escapejs }}');
+    const weeklySeconds = JSON.parse('{{ weekly_seconds_json|escapejs }}');
+
+    const chartConfigBase = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                labels: {
+                    color: '#f4f6ff'
+                }
+            }
+        },
+        scales: {
+            x: {
+                ticks: { color: '#c6d0e8' },
+                grid: { color: 'rgba(255,255,255,0.08)' }
+            },
+            y: {
+                ticks: { color: '#c6d0e8' },
+                grid: { color: 'rgba(255,255,255,0.08)' }
+            }
+        }
+    };
+
+    const genreCtx = document.getElementById('genreChart');
+    if (genreCtx) {
+        new Chart(genreCtx, {
+            type: 'doughnut',
+            data: {
+                labels: genres,
+                datasets: [{
+                    label: 'Genres',
+                    data: genreCounts,
+                    backgroundColor: ['#9C0000', '#c50000', '#ff3d3d', '#3f92ff', '#22c6a7', '#ffd36a']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: '#f4f6ff' }
+                    }
+                }
+            }
+        });
+    }
+
+    const weeklyCtx = document.getElementById('weeklyChart');
+    if (weeklyCtx) {
+        new Chart(weeklyCtx, {
+            type: 'bar',
+            data: {
+                labels: weeklyLabels,
+                datasets: [{
+                    label: 'Plays',
+                    data: weeklyCounts,
+                    backgroundColor: 'rgba(156, 0, 0, 0.8)',
+                    borderColor: '#ff4b4b',
+                    borderWidth: 1
+                }]
+            },
+            options: chartConfigBase
+        });
+    }
+
+    const weeklyTimeCtx = document.getElementById('weeklyTimeChart');
+    if (weeklyTimeCtx) {
+        new Chart(weeklyTimeCtx, {
+            type: 'line',
+            data: {
+                labels: weeklyLabels,
+                datasets: [{
+                    label: 'Seconds',
+                    data: weeklySeconds,
+                    borderColor: '#45b9ff',
+                    pointBackgroundColor: '#9C0000',
+                    backgroundColor: 'rgba(69,185,255,0.2)',
+                    fill: true,
+                    tension: 0.35
+                }]
+            },
+            options: chartConfigBase
+        });
+    }
+})();
+</script>
+{% endblock %}

@@ -14,6 +14,24 @@ active
 
 {% block main %}
     <div class="homecontainer">
+        <div class="search-headline">
+            <h2>Search Songs</h2>
+            <p>Use regular keyword search or switch to AI intent search.</p>
+        </div>
+
+        <div class="search-mode-switch" id="searchModeSwitch">
+            <button type="button" class="search-mode-btn active" data-mode="normal">Normal</button>
+            <button type="button" class="search-mode-btn" data-mode="ai">AI Search</button>
+        </div>
+
+        <div class="ai-search-panel hidden" id="aiSearchPanel">
+            <input type="text" id="aiSearchInput" placeholder="song where boy crying in rain" />
+            <button type="button" id="aiSearchRun">Run AI Search</button>
+        </div>
+
+        <div class="ai-search-results hidden" id="aiSearchResults"></div>
+
+        <div id="normalSearchResults">
         {% for playlist in CONTAINER %}
         <div class="category">
             <div class="cardContainer">
@@ -32,6 +50,7 @@ active
             </div>
         </div>
         {% endfor %}
+        </div>
 
     </div>
 {% endblock %}

@@ -21,3 +21,44 @@ class playlist_song(models.Model):
       return f'Title = {self.song_title}, Date = {self.song_date_added}'
 
 
+class ai_generated_playlist(models.Model):
+    user = models.ForeignKey(playlist_user, on_delete=models.CASCADE)
+    prompt = models.TextField()
+    title = models.CharField(max_length=180)
+    description = models.TextField(blank=True, default="")
+    queries = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.title} ({self.user.username})"
+
+
+class listening_analytics(models.Model):
+    EVENT_PLAY = "play"
+    EVENT_COMPLETE = "complete"
+    EVENT_SKIP = "skip"
+    EVENT_CHOICES = (
+        (EVENT_PLAY, "Play"),
+        (EVENT_COMPLETE, "Complete"),
+        (EVENT_SKIP, "Skip"),
+    )
+
+    user = models.ForeignKey(playlist_user, on_delete=models.CASCADE)
+    song_youtube_id = models.CharField(max_length=20, blank=True, default="")
+    song_title = models.CharField(max_length=220, blank=True, default="")
+    genre = models.CharField(max_length=80, blank=True, default="unknown")
+    mood = models.CharField(max_length=80, blank=True, default="unknown")
+    listen_seconds = models.PositiveIntegerField(default=0)
+    event_type = models.CharField(max_length=20, choices=EVENT_CHOICES, default=EVENT_PLAY)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.song_title} ({self.event_type})"
+
+
