@@ -1,18 +1,17 @@
 import json
 import os
 import time
+from urllib import request as urllib_request
+from urllib.error import HTTPError, URLError
 from datetime import timedelta
 
-import requests
 import yt_dlp
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.db.models import Count, Sum
-from django.http import JsonResponse, StreamingHttpResponse
 from django.db.models.functions import TruncDate
-from django.http import JsonResponse
-from django.http.response import HttpResponse
+from django.http import JsonResponse, HttpResponse, StreamingHttpResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods
@@ -326,56 +325,126 @@ def logout_auth(request):
     logout(request)
     return redirect("/login")
 
-def get_audio_url(request, video_id):
+
+def _extract_playable_audio_url(video_id):
     ydl_opts = {
         "format": "bestaudio/best",
         "quiet": True,
         "no_warnings": True,
+        "noplaylist": True,
+        "extractor_retries": 3,
+        "http_headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": "https://www.youtube.com/",
+        },
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["android", "web"],
+            }
+        },
     }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(
+            f"https://www.youtube.com/watch?v={video_id}", download=False
+        )
+
+    if info is None:
+        raise Exception("Could not fetch stream details")
+
+    if isinstance(info, dict) and "entries" in info:
+        info = next((entry for entry in (info.get("entries") or []) if entry), None) or {}
+
+    direct_url = (info or {}).get("url")
+    if direct_url:
+        return direct_url
+
+    formats = (info or {}).get("formats") or []
+    playable_audio_formats = [
+        fmt for fmt in formats if fmt.get("url") and fmt.get("acodec") not in (None, "none")
+    ]
+    if playable_audio_formats:
+        playable_audio_formats.sort(
+            key=lambda fmt: (
+                fmt.get("abr") or 0,
+                fmt.get("asr") or 0,
+                fmt.get("filesize") or 0,
+            ),
+            reverse=True,
+        )
+        return playable_audio_formats[0]["url"]
+
+    raise Exception("No playable audio URL found")
+
+def get_audio_url(request, video_id):
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(
-                f"https://www.youtube.com/watch?v={video_id}", download=False
-            )
-            url = info["url"]
-        return JsonResponse({"url": url})
+        return JsonResponse({"url": _extract_playable_audio_url(video_id)})
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
 
 def get_audio_stream(request, video_id):
-    ydl_opts = {
-        "format": "bestaudio/best",
-        "quiet": True,
-        "no_warnings": True,
-    }
+    upstream_response = None
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(
-                f"https://www.youtube.com/watch?v={video_id}", download=False
-            )
-            audio_url = info["url"]
-        
-        # Proxy the audio stream
-        headers_to_forward = {}
-        for header in ['Range', 'Accept', 'User-Agent', 'Referer']:
-            if header in request.headers:
-                headers_to_forward[header] = request.headers[header]
-        
-        response = requests.get(audio_url, stream=True, headers=headers_to_forward)
+        audio_url = _extract_playable_audio_url(video_id)
+
+        upstream_headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Referer": "https://www.youtube.com/",
+        }
+        incoming_range = request.headers.get("Range")
+        if incoming_range:
+            upstream_headers["Range"] = incoming_range
+
+        upstream_request = urllib_request.Request(audio_url, headers=upstream_headers)
+        upstream_response = urllib_request.urlopen(upstream_request, timeout=20)
+
+        response_headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Range",
+            "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+            "Accept-Ranges": "bytes",
+        }
+
+        content_length = upstream_response.headers.get("Content-Length")
+        content_range = upstream_response.headers.get("Content-Range")
+        content_type = upstream_response.headers.get("Content-Type") or "audio/mpeg"
+        if content_length:
+            response_headers["Content-Length"] = content_length
+        if content_range:
+            response_headers["Content-Range"] = content_range
+
+        status_code = getattr(upstream_response, "status", 200)
+
+        def generate():
+            try:
+                while True:
+                    chunk = upstream_response.read(65536)
+                    if not chunk:
+                        break
+                    yield chunk
+            finally:
+                upstream_response.close()
+
         return StreamingHttpResponse(
-            response.iter_content(chunk_size=65536),
-            content_type=response.headers.get('content-type', 'audio/webm'),
-            headers={
-                'Content-Length': response.headers.get('content-length'),
-                'Accept-Ranges': 'bytes',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Headers': 'Range',
-                'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-            }
+            generate(),
+            status=status_code,
+            content_type=content_type,
+            headers=response_headers,
         )
+    except HTTPError as e:
+        error_msg = f"Upstream HTTP Error {e.code}: {e.reason}"
+        print(f"Exception in get_audio_stream: {error_msg}")
+        return HttpResponse(error_msg, status=e.code, content_type="text/plain")
+    except URLError as e:
+        error_msg = f"Upstream URL Error: {e.reason}"
+        print(f"Exception in get_audio_stream: {error_msg}")
+        return HttpResponse(error_msg, status=502, content_type="text/plain")
     except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+        error_msg = str(e)
+        print(f"Exception in get_audio_stream: {error_msg}")
+        return HttpResponse(error_msg, status=500, content_type='text/plain')
 
 
 def playlist(request):

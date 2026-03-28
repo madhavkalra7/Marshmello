@@ -55,7 +55,7 @@
 
         <div class="ytbPlayerCont" id="ytbPlayerCont" onclick="iframeToggle()">
             {% block iframe %}
-                <audio id="audio" controls style="display:none;" crossorigin="anonymous"></audio>
+                <audio id="audio" controls crossorigin="anonymous" style="display:none;"></audio>
             {% endblock %}
         </div>
     </div>
@@ -255,6 +255,8 @@ let currentAiMood = 'unknown';
 let currentAiGenre = 'unknown';
 let lastPlayTrackedSongId = null;
 let aiMode = 'chat';
+let sourceFallbackTriedForSong = null;
+let activePlayRequestToken = 0;
 
 let audioContext = null;
 let sourceNode = null;
@@ -321,6 +323,61 @@ function requestJson(url, payload) {
             return { ok: response.ok, data: data };
         });
     });
+}
+
+function buildAudioUrlEndpoint(songId) {
+    return '/get_audio_url/' + encodeURIComponent(songId) + '/';
+}
+
+function buildAudioStreamEndpoint(songId) {
+    return '/get_audio_stream/' + encodeURIComponent(songId) + '/';
+}
+
+function fetchDirectAudioUrl(songId) {
+    return fetch(buildAudioUrlEndpoint(songId), {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json'
+        }
+    }).then(function (response) {
+        return response.json().then(function (data) {
+            if (!response.ok || !data || !data.url) {
+                throw new Error((data && data.error) || 'Could not resolve audio stream URL');
+            }
+            return data.url;
+        });
+    });
+}
+
+function setAudioSource(url, crossOriginEnabled) {
+    if (crossOriginEnabled) {
+        audio.crossOrigin = 'anonymous';
+    } else {
+        audio.removeAttribute('crossorigin');
+    }
+    audio.src = url;
+}
+
+function startSongPlayback(songId) {
+    const playToken = ++activePlayRequestToken;
+    sourceFallbackTriedForSong = null;
+
+    fetchDirectAudioUrl(songId)
+        .then(function (directUrl) {
+            if (playToken !== activePlayRequestToken || currentSongId !== songId) {
+                return;
+            }
+            setAudioSource(directUrl, true);
+            play();
+        })
+        .catch(function () {
+            if (playToken !== activePlayRequestToken || currentSongId !== songId) {
+                return;
+            }
+            sourceFallbackTriedForSong = songId;
+            setAudioSource(buildAudioStreamEndpoint(songId), false);
+            play();
+        });
 }
 
 function handleThumbError(img) {
@@ -552,21 +609,7 @@ function playSongNew(id, playlistId, liked, sourceEl) {
         lastPlayTrackedSongId = id;
     }
 
-    fetch('/get_audio_url/' + id + '/')
-        .then(function (response) { return response.json(); })
-        .then(function (data) {
-            if (!data.url) {
-                updatePlayPauseUi(false);
-                showPlaybackNotice('Failed to load audio.', true);
-                return;
-            }
-            audio.src = '/get_audio_stream/' + id;
-            play();
-        })
-        .catch(function () {
-            updatePlayPauseUi(false);
-            showPlaybackNotice('Error loading audio.', true);
-        });
+    startSongPlayback(id);
 }
 window.playSongNew = playSongNew;
 
@@ -887,6 +930,32 @@ audio.addEventListener('durationchange', function () {
 
 audio.addEventListener('timeupdate', function () {
     updateProgressUI();
+});
+
+audio.addEventListener('playing', function () {
+    sourceFallbackTriedForSong = null;
+    hidePlaybackNotice();
+});
+
+audio.addEventListener('error', function () {
+    if (!currentSongId) {
+        updatePlayPauseUi(false);
+        return;
+    }
+
+    const currentSrc = audio.currentSrc || audio.src || '';
+    const isUsingFallbackStream = currentSrc.indexOf('/get_audio_stream/') !== -1;
+    const canRetryWithFallback = !isUsingFallbackStream && sourceFallbackTriedForSong !== currentSongId;
+
+    if (canRetryWithFallback) {
+        sourceFallbackTriedForSong = currentSongId;
+        setAudioSource(buildAudioStreamEndpoint(currentSongId), false);
+        play();
+        return;
+    }
+
+    updatePlayPauseUi(false);
+    showPlaybackNotice('This song is unavailable here right now. Try Watch on YouTube.', true);
 });
 
 audio.addEventListener('ended', function () {
